@@ -213,14 +213,16 @@ function answer(ok,fb,b){
   const n=el("button","btn","Weiter");n.onclick=()=>{qi++;nextQ()};b.append(n);
 }
 
-// ===== Wörter (Auswahl & Freigabe) =====
-const sel=new Set();
+// ===== Wörter (Auswahl, Freigabe & Zurücknehmen) =====
+const add=new Set(),rem=new Set();
 function groups(list){const g=new Map();list.forEach(w=>{const k=secName(w);if(!g.has(k))g.set(k,[]);g.get(k).push(w)});return g}
 function renderWords(){
   header();const box=$("woerter");box.innerHTML="";
-  box.append(el("p","mu","Wörter ankreuzen und freigeben. Freigegebene Wörter erscheinen in „Lernen“ und „Üben“."));
+  box.append(el("p","mu","Häkchen setzen = freigeben, Häkchen entfernen = wieder rausnehmen. Danach unten auf „Übernehmen“ tippen."));
   const fb=el("button","btn sticky","");
-  const upd=()=>{fb.textContent=`Freigeben (${sel.size})`;fb.disabled=!sel.size};
+  const upd=()=>{const n=add.size+rem.size;fb.textContent=n?`Übernehmen (${add.size?"+"+add.size:""}${add.size&&rem.size?" / ":""}${rem.size?"−"+rem.size:""})`:"Übernehmen";fb.disabled=!n};
+  const setCb=(c,on)=>{const id=c.dataset.id,was=st(id).active;c.checked=on;
+    add.delete(id);rem.delete(id);if(on&&!was)add.add(id);if(!on&&was)rem.add(id)};
   let lastUnit=null;
   groups(V).forEach((ws,name)=>{
     if(ws[0].unit!==lastUnit){lastUnit=ws[0].unit;box.append(el("h2",null,lastUnit))}
@@ -228,17 +230,23 @@ function renderWords(){
     hd.append(el("b",null,ws[0].section),all);b.append(hd);
     ws.forEach(w=>{
       const r=el("label","li"),cb=document.createElement("input");cb.type="checkbox";cb.style.cssText="width:22px;height:22px;flex:none";
+      cb.dataset.id=w.id;
       const x=st(w.id);let t=(w.page?"S. "+w.page+" · ":"")+w.en+" – "+w.de;
       if(x.active)t+=x.status==="done"?"  ✓ gemeistert":"  ● freigegeben";
-      if(x.active){cb.checked=true;cb.disabled=true}
-      else{cb.checked=sel.has(w.id);cb.onchange=()=>{cb.checked?sel.add(w.id):sel.delete(w.id);upd()}}
+      cb.checked=(x.active&&!rem.has(w.id))||add.has(w.id);
+      cb.onchange=()=>{setCb(cb,cb.checked);upd()};
       const sp=el("span",null,t);sp.style.flex="1";r.append(cb,sp);b.append(r);cbs.push(cb);
-      cb.dataset.id=w.id;
     });
-    all.onclick=()=>{const on=cbs.some(c=>!c.disabled&&!c.checked);cbs.forEach(c=>{if(!c.disabled){c.checked=on;on?sel.add(c.dataset.id):sel.delete(c.dataset.id)}});upd()};
+    all.textContent=cbs.every(c=>c.checked)?"Alle abwählen":"Alle wählen";
+    all.onclick=()=>{const on=!cbs.every(c=>c.checked);cbs.forEach(c=>setCb(c,on));all.textContent=on?"Alle abwählen":"Alle wählen";upd()};
     box.append(b);
   });
-  fb.onclick=()=>{sel.forEach(id=>{const x=st(id);x.active=true;x.status="new";x.streak=0;touch(id)});sel.clear();renderWords()};
+  fb.onclick=()=>{
+    if(rem.size&&!confirm(`${rem.size} Wort/Wörter wieder rausnehmen? Der Lernstand dieser Wörter wird zurückgesetzt.`))return;
+    add.forEach(id=>{const x=st(id);x.active=true;x.status="new";x.streak=0;touch(id)});
+    rem.forEach(id=>{const x=st(id);x.active=false;x.status="new";x.streak=0;touch(id)});
+    add.clear();rem.clear();renderWords();
+  };
   upd();box.append(fb);
 }
 
