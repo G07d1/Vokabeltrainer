@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Vokabeltrainer Englisch</title>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--tx:#1e293b;--mu:#64748b;--pr:#4f46e5;--pl:#eef2ff;--ok:#059669;--okb:#d1fae5;--bad:#e11d48;--badb:#ffe4e6;--bd:#e2e8f0;--box:#dbeafe}
+@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--tx:#f1f5f9;--mu:#94a3b8;--pl:#312e81;--okb:#064e3b;--badb:#4c0519;--bd:#334155;--box:#1e3a5f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--pr);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+header h1{margin:0;font-size:18px}header p{margin:2px 0 0;font-size:12px;opacity:.85}
+header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600}
+nav{display:flex;background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5;overflow-x:auto}
+nav button{flex:1;padding:12px 6px;border:0;background:none;color:var(--mu);font-weight:600;font-size:13px;border-bottom:3px solid transparent;white-space:nowrap}
+nav button.on{color:var(--pr);border-color:var(--pr)}
+main{max-width:640px;margin:0 auto;padding:16px}
+.box{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:14px}
+.btn{border:0;border-radius:12px;padding:13px 14px;font-weight:700;font-size:15px;background:var(--pr);color:#fff;width:100%;margin-top:8px}
+.btn.g{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:8px}
+.mu{color:var(--mu);font-size:13px}
+.sc{perspective:1000px;height:300px;margin-bottom:6px}
+.si{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.si.f{transform:rotateY(180deg)}
+.fc{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;text-align:center;border:1px solid var(--bd);background:var(--card);overflow:auto}
+.bk{transform:rotateY(180deg);background:#312e81;color:#fff}
+.big{font-size:30px;font-weight:800;word-break:break-word}.de{font-size:22px;font-weight:700;color:#fcd34d}
+.ex{background:rgba(255,255,255,.12);border-radius:10px;padding:10px;font-size:14px;font-style:italic;margin-top:12px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--pl);color:var(--pr)}
+.opt{display:block;width:100%;text-align:left;padding:14px;margin-top:8px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:16px;font-weight:600}
+.opt.ok{background:var(--okb);border-color:var(--ok)}.opt.no{background:var(--badb);border-color:var(--bad)}
+.fb{margin-top:10px;padding:12px;border-radius:12px;font-size:14px}.fb.ok{background:var(--okb)}.fb.no{background:var(--badb)}
+.li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--bd);font-size:14px}
+.li:first-child{border-top:0}
+.sm{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+h2{font-size:17px;margin:20px 4px 10px}h3{margin:0 0 6px;font-size:16px}
+.cols{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.col{flex:1 1 150px;background:var(--box);border-radius:12px;padding:12px;font-size:14px}
+.col div{margin-top:6px}
+summary{font-weight:700;cursor:pointer;font-size:16px}
+input.t{width:100%;padding:14px;font-size:16px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin-top:8px}
+#sync{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));background:#1e293b;color:#fff;padding:8px 14px;border-radius:99px;font-size:13px;display:none;z-index:9}
+.hid{display:none}
+.sticky{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom))}
+</style>
+</head>
+<body>
+<header><div><h1>📚 Vokabeltrainer Englisch</h1><p id="stat">Highlight 8</p></div><button id="logout" class="hid">Abmelden</button></header>
+<nav id="nav" class="hid">
+<button data-t="lernen" class="on">Lernen</button><button data-t="ueben">Üben</button><button data-t="woerter">Wörter</button><button data-t="archiv">Archiv</button><button data-t="kaesten">Merkkästen</button>
+</nav>
+<main>
+<section id="login"></section>
+<section id="lernen" class="hid"></section>
+<section id="ueben" class="hid"></section>
+<section id="woerter" class="hid"></section>
+<section id="archiv" class="hid"></section>
+<section id="kaesten" class="hid"></section>
+</main>
+<div id="sync"></div>
+<script>
+// ===== Verbindung zu Supabase =====
+const SB_URL="https://reithvwizkydktydpwni.supabase.co";
+const SB_KEY="sb_publishable_BhaAQzt8wwHf2RZctuwhIA_MPz2nkvj";
+async function rpc(fn,body){
+  const r=await fetch(SB_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"apikey":SB_KEY,"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const t=await r.text();
+  if(!r.ok){let m="Fehler";try{m=JSON.parse(t).message||m}catch(e){}throw new Error(m)}
+  return t?JSON.parse(t):null;
+}
+
+// ===== Daten & Lernstand =====
+let ME=null, V=[], BOX=[], P={};
+const dirty=new Set(); let saveT=null;
+const st=id=>P[id]||(P[id]={active:false,status:"new",streak:0});
+const active=w=>st(w.id).active;
+const open=w=>active(w)&&st(w.id).status!=="done";
+function touch(id){dirty.add(id);clearTimeout(saveT);saveT=setTimeout(flush,700)}
+async function flush(){
+  if(!dirty.size)return;
+  const ids=[...dirty];dirty.clear();
+  const items=ids.map(id=>({vocab_id:id,...st(id)}));
+  try{await rpc("vt_save",{p_name:ME.name,p_pin:ME.pin,p_items:items});hideSync()}
+  catch(e){ids.forEach(i=>dirty.add(i));showSync("⚠️ Nicht gespeichert – neuer Versuch …");saveT=setTimeout(flush,5000)}
+}
+function showSync(t){const s=$("sync");s.textContent=t;s.style.display="block"}
+function hideSync(){$("sync").style.display="none"}
+window.addEventListener("pagehide",flush);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
+
+// ===== Helfer =====
+const $=id=>document.getElementById(id);
+const shuf=a=>a.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(v=>v[1]);
+const clean=s=>s.replace(/^\(to\)\s*/,"");
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+const secName=w=>w.unit===w.section?w.unit:w.unit+" · "+w.section;
+function header(){
+  const a=V.filter(active),d=a.filter(w=>st(w.id).status==="done").length;
+  $("stat").textContent=ME?`${ME.name} · Freigegeben: ${a.length-d} · Gemeistert: ${d}`:"Highlight 8";
+}
+
+// ===== Anmeldung =====
+function loadSaved(){try{return JSON.parse(localStorage.getItem("vt_login")||"null")}catch(e){return null}}
+function storeLogin(v){try{v?localStorage.setItem("vt_login",JSON.stringify(v)):localStorage.removeItem("vt_login")}catch(e){}}
+function renderLogin(msg){
+  const box=$("login");box.innerHTML="";const b=el("div","box");
+  b.append(el("h3",null,"Anmelden"));
+  const n=el("input","t");n.placeholder="Name";n.autocapitalize="words";n.autocomplete="username";
+  const p=el("input","t");p.placeholder="PIN";p.type="password";p.inputMode="numeric";p.autocomplete="current-password";
+  const s=el("button","btn","Los geht's");
+  const go=()=>login(n.value.trim(),p.value.trim());
+  s.onclick=go;p.onkeydown=e=>{if(e.key==="Enter")go()};
+  b.append(n,p,s);if(msg){const m=el("p","mu",msg);m.style.color="var(--bad)";b.append(m)}
+  box.append(b);
+}
+async function login(name,pin){
+  if(!name||!pin)return renderLogin("Bitte Name und PIN eingeben.");
+  $("login").innerHTML="";$("login").append(el("p","mu","Lade Vokabeln …"));
+  try{
+    const d=await rpc("vt_load",{p_name:name,p_pin:pin});
+    ME={name,pin};storeLogin(ME);
+    V=d.vocab||[];BOX=d.boxes||[];P={};
+    (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak}});
+    $("login").classList.add("hid");$("nav").classList.remove("hid");$("logout").classList.remove("hid");
+    buildBoxes();show("lernen");
+  }catch(e){
+    storeLogin(null);
+    renderLogin(/PIN/.test(e.message)?"Name oder PIN falsch.":"Keine Verbindung. Bitte Internet prüfen.");
+  }
+}
+$("logout").onclick=async()=>{await flush();storeLogin(null);location.reload()};
+
+// ===== Tabs =====
+const TABS=["lernen","ueben","woerter","archiv","kaesten"];
+function show(t){
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  TABS.forEach(x=>$(x).classList.toggle("hid",x!==t));
+  ({lernen:renderCards,ueben:renderQuizStart,woerter:renderWords,archiv:renderArchive,kaesten:header})[t]();
+  window.scrollTo(0,0);
+}
+$("nav").onclick=e=>{const t=e.target.dataset.t;if(t)show(t)};
+
+// ===== Lernen (Karteikarten) =====
+let ci=0;
+function renderCards(){
+  header();const box=$("lernen");box.innerHTML="";
+  const deck=V.filter(open);
+  if(!deck.length){const b=el("div","box");b.append(el("p",null,"Gerade sind keine Vokabeln freigegeben."),el("p","mu","Im Tab „Wörter“ die Vokabeln für den nächsten Test auswählen."));box.append(b);return}
+  if(ci>=deck.length)ci=0;
+  const w=deck[ci],x=st(w.id);
+  const top=el("div","mu",`Karte ${ci+1} von ${deck.length} · ${secName(w)}${w.page?" · S. "+w.page:""}`);top.style.marginBottom="8px";
+  const sc=el("div","sc"),si=el("div","si"),f=el("div","fc"),b=el("div","fc bk");
+  const t1=el("div");t1.append(el("span","tag",x.status==="new"?"NEU":"am Üben"));
+  const m=el("div");m.append(el("div","big",w.en));if(w.forms)m.append(el("div","mu","Formen: "+w.forms));
+  f.append(t1,m,el("div","mu","Tippen zum Umdrehen"));
+  const m2=el("div");m2.append(el("div","de",w.de));
+  if(w.ex)m2.append(el("div","ex",w.ex));
+  if(w.box){const bx=BOX.find(z=>z.id===w.box);if(bx){const k=el("div","mu","📘 Merkkasten: "+bx.title);k.style.cssText="margin-top:10px;color:#c7d2fe";m2.append(k)}}
+  b.append(el("div"),m2,el("div","mu","Tippen zum Zurückdrehen"));
+  si.append(f,b);sc.append(si);sc.onclick=()=>si.classList.toggle("f");
+  box.append(top,sc);
+  const sp=el("button","btn g","🔊 Anhören");
+  sp.onclick=()=>{if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(w.en));u.lang="en-GB";speechSynthesis.speak(u)}};
+  box.append(sp);
+  const r=el("div","row"),p=el("button","btn g","← Zurück"),n=el("button","btn","Weiter →");
+  p.onclick=()=>{ci=(ci-1+deck.length)%deck.length;renderCards()};
+  n.onclick=()=>{ci=(ci+1)%deck.length;renderCards()};
+  r.append(p,n);box.append(r);
+}
+
+// ===== Üben (Quiz, 3 Antworten, alle freigegebenen Wörter) =====
+let pool=[],qi=0,pts=0,cur=null;
+function renderQuizStart(){
+  header();const box=$("ueben");box.innerHTML="";const q=V.filter(open);const b=el("div","box");
+  if(!q.length){b.append(el("p",null,"Noch nichts zum Üben freigegeben."),el("p","mu","Im Tab „Wörter“ Vokabeln auswählen und freigeben."))}
+  else{b.append(el("p",null,`${q.length} Vokabeln sind bereit.`),el("p","mu","Jedes Wort kommt einmal dran. 3× in Folge richtig = gemeistert."));
+    const s=el("button","btn","Quiz starten");s.onclick=()=>{pool=shuf(q);qi=0;pts=0;nextQ()};b.append(s)}
+  box.append(b);
+}
+function nextQ(){
+  const box=$("ueben");
+  if(qi>=pool.length){box.innerHTML="";const b=el("div","box");b.append(el("h3",null,`Fertig! ${pts} von ${pool.length} richtig 🎉`));
+    const s=el("button","btn","Nochmal");s.onclick=renderQuizStart;b.append(s);box.append(b);header();return}
+  const w=pool[qi];cur={w,t:Math.random()<.5?"de2en":"en2de",done:false};drawQ();
+}
+function drawQ(){
+  const {w,t}=cur;const box=$("ueben");box.innerHTML="";const b=el("div","box");
+  b.append(el("div","mu",`Frage ${qi+1}/${pool.length} · ${secName(w)}`));
+  b.append(el("h3",null,t==="en2de"?`Was heißt „${clean(w.en)}“?`:`Wie heißt auf Englisch: ${w.de}`));
+  const val=v=>t==="de2en"?clean(v.en):v.de;
+  const correct=val(w);
+  let others=V.filter(v=>v.id!==w.id&&active(v)&&val(v)!==correct);
+  if(others.length<2)others=V.filter(v=>v.id!==w.id&&val(v)!==correct);
+  const opts=shuf([correct,...[...new Set(shuf(others).map(val))].slice(0,2)]);
+  const fb=el("div","fb hid");
+  opts.forEach(o=>{const bt=el("button","opt",o);bt.onclick=()=>{
+    if(cur.done)return;bt.classList.add(o===correct?"ok":"no");
+    b.querySelectorAll(".opt").forEach(x=>{if(x.textContent===correct)x.classList.add("ok")});
+    answer(o===correct,fb,b)};b.append(bt)});
+  b.append(fb);box.append(b);
+}
+function answer(ok,fb,b){
+  cur.done=true;const w=cur.w,x=st(w.id);
+  if(x.status==="new")x.status="practice";
+  if(ok){x.streak++;pts++;if(x.streak>=3)x.status="done"}else x.streak=0;
+  touch(w.id);header();
+  fb.className="fb "+(ok?"ok":"no");
+  fb.textContent=(ok?"Richtig! ":"Leider nein. ")+`${w.en} = ${w.de}`+(ok&&x.status==="done"?" · Gemeistert 🏆":"");
+  const n=el("button","btn","Weiter");n.onclick=()=>{qi++;nextQ()};b.append(n);
+}
+
+// ===== Wörter (Auswahl & Freigabe) =====
+const sel=new Set();
+function groups(list){const g=new Map();list.forEach(w=>{const k=secName(w);if(!g.has(k))g.set(k,[]);g.get(k).push(w)});return g}
+function renderWords(){
+  header();const box=$("woerter");box.innerHTML="";
+  box.append(el("p","mu","Wörter ankreuzen und freigeben. Freigegebene Wörter erscheinen in „Lernen“ und „Üben“."));
+  const fb=el("button","btn sticky","");
+  const upd=()=>{fb.textContent=`Freigeben (${sel.size})`;fb.disabled=!sel.size};
+  let lastUnit=null;
+  groups(V).forEach((ws,name)=>{
+    if(ws[0].unit!==lastUnit){lastUnit=ws[0].unit;box.append(el("h2",null,lastUnit))}
+    const b=el("div","box"),hd=el("div","li"),all=el("button","sm","Alle wählen"),cbs=[];
+    hd.append(el("b",null,ws[0].section),all);b.append(hd);
+    ws.forEach(w=>{
+      const r=el("label","li"),cb=document.createElement("input");cb.type="checkbox";cb.style.cssText="width:22px;height:22px;flex:none";
+      const x=st(w.id);let t=(w.page?"S. "+w.page+" · ":"")+w.en+" – "+w.de;
+      if(x.active)t+=x.status==="done"?"  ✓ gemeistert":"  ● freigegeben";
+      if(x.active){cb.checked=true;cb.disabled=true}
+      else{cb.checked=sel.has(w.id);cb.onchange=()=>{cb.checked?sel.add(w.id):sel.delete(w.id);upd()}}
+      const sp=el("span",null,t);sp.style.flex="1";r.append(cb,sp);b.append(r);cbs.push(cb);
+      cb.dataset.id=w.id;
+    });
+    all.onclick=()=>{const on=cbs.some(c=>!c.disabled&&!c.checked);cbs.forEach(c=>{if(!c.disabled){c.checked=on;on?sel.add(c.dataset.id):sel.delete(c.dataset.id)}});upd()};
+    box.append(b);
+  });
+  fb.onclick=()=>{sel.forEach(id=>{const x=st(id);x.active=true;x.status="new";x.streak=0;touch(id)});sel.clear();renderWords()};
+  upd();box.append(fb);
+}
+
+// ===== Archiv =====
+function renderArchive(){
+  header();const box=$("archiv");box.innerHTML="";
+  const list=V.filter(active);
+  if(!list.length){box.append(el("p","mu","Noch keine Vokabeln freigegeben."));return}
+  groups(list).forEach((ws,name)=>{
+    const b=el("div","box");b.append(el("h3",null,name));
+    const d=ws.filter(v=>st(v.id).status==="done");
+    b.append(el("p","mu",`${d.length} von ${ws.length} gemeistert`));
+    if(d.length<ws.length){const t=el("button","btn","Test geschrieben – alle ins Archiv");
+      t.onclick=()=>{if(confirm("Alle freigegebenen Vokabeln dieses Abschnitts als gemeistert markieren?")){ws.forEach(v=>{st(v.id).status="done";touch(v.id)});renderArchive()}};b.append(t)}
+    ws.forEach(v=>{const x=st(v.id),r=el("div","li");r.append(el("span",null,`${v.en} – ${v.de}`));
+      const a=el("button","sm",x.status==="done"?"Wieder aktivieren":"Kann ich, weg damit");
+      a.onclick=()=>{if(x.status==="done"){x.status="practice";x.streak=0}else x.status="done";touch(v.id);renderArchive()};
+      r.append(a);b.append(r)});
+    box.append(b);
+  });
+}
+
+// ===== Merkkästen =====
+function buildBoxes(){
+  const box=$("kaesten");box.innerHTML="";
+  box.append(el("p","mu","Die blauen Kästen aus dem Buch."));
+  let lastUnit=null;
+  BOX.forEach(x=>{
+    if(x.unit!==lastUnit){lastUnit=x.unit;box.append(el("h2",null,lastUnit))}
+    const c=x.content||{};const d=document.createElement("details");d.className="box";
+    d.append(el("summary",null,x.title));
+    const g=el("div","cols");
+    (c.cols||[]).forEach(col=>{const k=el("div","col");if(col.h)k.append(el("b",null,col.h));(col.l||[]).forEach(t=>k.append(el("div",null,t)));g.append(k)});
+    d.append(g);if(c.note)d.append(el("p",null,c.note));
+    if(c.exercise){const ex=c.exercise;d.append(el("h3",null,ex.title));
+      ex.items.forEach(([s,a])=>{const r=el("div");r.style.marginTop="12px";r.append(el("div",null,s));const f=el("div","mu");
+        ex.options.forEach(o=>{const bt=el("button","sm",o);bt.style.cssText="margin:6px 6px 0 0";bt.onclick=()=>{f.textContent=o===a?"✅ Richtig":"❌ Nicht ganz, richtig: "+a};r.append(bt)});
+        r.append(f);d.append(r)})}
+    box.append(d);
+  });
+}
+
+// ===== Start =====
+const saved=loadSaved();
+if(saved)login(saved.name,saved.pin);else renderLogin();
+</script>
+</body>
+</html>
