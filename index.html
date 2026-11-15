@@ -54,7 +54,8 @@ select.t{appearance:none;-webkit-appearance:none;font-weight:600;margin-top:0;pa
 .dm{background:#fde68a;color:#1e293b;border-radius:3px;padding:0 1px}
 .kind{font-weight:700;margin-bottom:6px}
 .prompt{font-size:22px;font-weight:800;margin:10px 0 2px}
-.sticky{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom))}
+.jump{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));width:54px;height:54px;border-radius:50%;border:0;background:var(--pr);color:#fff;font-size:24px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:8}
+.jump .bd{position:absolute;top:-6px;right:-8px;background:#f59e0b;color:#1e293b;border-radius:99px;font-size:12px;padding:2px 7px;font-weight:800}
 </style>
 </head>
 <body>
@@ -375,10 +376,13 @@ function renderWords(){
     r.append(info,go,del);sb.append(r);
   });
   box.append(sb);
-  box.append(el("p","mu","Häkchen setzen = freigeben, Häkchen entfernen = wieder rausnehmen. Danach unten auf „Übernehmen“ tippen."));
-  const fb=el("button","btn sticky","");
+  box.append(el("p","mu","Häkchen setzen = freigeben, Häkchen entfernen = wieder rausnehmen. Danach ganz unten auf „Übernehmen“ tippen – der Pfeil ↓ rechts unten bringt dich direkt hin."));
+  const fb=el("button","btn","");
   const sv=el("button","btn g","💾 Als Lernset speichern");
-  const upd=()=>{const n=add.size+rem.size;fb.textContent=n?`Übernehmen (${add.size?"+"+add.size:""}${add.size&&rem.size?" / ":""}${rem.size?"−"+rem.size:""})`:"Übernehmen";fb.disabled=!n};
+  const jump=el("button","jump","↓"),bd=el("span","bd");jump.setAttribute("aria-label","Nach unten zu den Buttons");
+  const upd=()=>{const n=add.size+rem.size,lab=`${add.size?"+"+add.size:""}${add.size&&rem.size?" / ":""}${rem.size?"−"+rem.size:""}`;
+    fb.textContent=n?`Übernehmen (${lab})`:"Übernehmen";fb.disabled=!n;
+    bd.textContent=lab;if(n)jump.append(bd);else bd.remove()};
   const setCb=(c,on)=>{const id=c.dataset.id,was=st(id).active;c.checked=on;
     add.delete(id);rem.delete(id);if(on&&!was)add.add(id);if(!on&&was)rem.add(id)};
   let lastUnit=null;
@@ -417,8 +421,12 @@ function renderWords(){
     catch(e){alert("Speichern hat nicht geklappt. Bitte Internet prüfen.")}
   };
   upd();
-  box.append(el("p","mu","„Als Lernset speichern“ merkt sich alle gerade freigegebenen, noch nicht gemeisterten Wörter."));
-  box.append(sv,fb);
+  const bottom=el("div","box");
+  bottom.append(fb,sv,el("p","mu","„Als Lernset speichern“ merkt sich alle gerade freigegebenen, noch nicht gemeisterten Wörter."));
+  box.append(bottom,jump);
+  jump.onclick=()=>bottom.scrollIntoView({behavior:"smooth",block:"end"});
+  if(window.wObs)wObs.disconnect();
+  if("IntersectionObserver"in window){window.wObs=new IntersectionObserver(e=>{jump.style.display=e[0].isIntersecting?"none":""});wObs.observe(bottom)}
 }
 
 // ===== Archiv =====
