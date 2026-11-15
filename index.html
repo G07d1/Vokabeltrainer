@@ -86,7 +86,16 @@ async function rpc(fn,body){
 // ===== Daten & Lernstand =====
 let ME=null, V=[], BOX=[], P={}, SETS=[];
 const dirty=new Set(); let saveT=null;
-const st=id=>P[id]||(P[id]={active:false,status:"new",streak:0});
+const st=id=>P[id]||(P[id]={active:false,status:"new",streak:0,level:0,due:null});
+// Stufen: nach Erreichen von Stufe n kommt das Wort nach INT[n] Tagen wieder; richtig auf Stufe 5 = gemeistert
+const INT=[0,0,1,2,4,7];
+const ymd=d=>{const z=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())};
+const today=()=>ymd(new Date());
+const addDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return ymd(d)};
+const isDue=w=>{const d=st(w.id).due;return !d||d<=today()};
+const dots=x=>x.status==="done"?"✓ gemeistert":"●".repeat(x.level||0)+"○".repeat(5-(x.level||0));
+function whenTxt(d){const n=Math.round((new Date(d+"T12:00")-new Date(today()+"T12:00"))/864e5);
+  return n<=0?"heute nochmal":n===1?"morgen":n===2?"übermorgen":`in ${n} Tagen`}
 const active=w=>st(w.id).active;
 const open=w=>active(w)&&st(w.id).status!=="done";
 function touch(id){dirty.add(id);clearTimeout(saveT);saveT=setTimeout(flush,700)}
@@ -132,7 +141,7 @@ function setPicker(onChange){
 }
 function header(){
   const a=V.filter(active),d=a.filter(w=>st(w.id).status==="done").length;
-  $("stat").textContent=ME?`${ME.name} · Freigegeben: ${a.length-d} · Gemeistert: ${d}`:"Highlight 8";
+  $("stat").textContent=ME?`${ME.name} · Heute dran: ${a.filter(w=>open(w)&&isDue(w)).length} · Gemeistert: ${d}`:"Highlight 8";
 }
 
 // ===== Anmeldung =====
@@ -156,7 +165,7 @@ async function login(name,pin){
     const d=await rpc("vt_load",{p_name:name,p_pin:pin});
     ME={name,pin};storeLogin(ME);
     V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];
-    (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak}});
+    (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak,level:x.level||0,due:x.due||null}});
     $("login").classList.add("hid");$("nav").classList.remove("hid");$("logout").classList.remove("hid");
     buildBoxes();show("lernen");
   }catch(e){
@@ -187,7 +196,7 @@ function renderCards(){
   const w=deck[ci],x=st(w.id);
   const top=el("div","mu",`Karte ${ci+1} von ${deck.length} · ${secName(w)}${w.page?" · S. "+w.page:""}`);top.style.marginBottom="8px";
   const sc=el("div","sc"),si=el("div","si"),f=el("div","fc"),b=el("div","fc bk");
-  const t1=el("div");t1.append(el("span","tag",x.status==="new"?"NEU":"am Üben"));
+  const t1=el("div");t1.append(el("span","tag",x.status==="new"?"NEU":"Stufe "+dots(x)));
   const m=el("div");m.append(el("div","big",w.en));if(w.forms)m.append(el("div","mu","Formen: "+w.forms));
   f.append(t1,m,el("div","mu","Tippen zum Umdrehen"));
   const m2=el("div");m2.append(el("div","de",w.de));
@@ -212,12 +221,17 @@ function renderQuizStart(){
   if(SETS.length)box.append(setPicker(renderQuizStart));
   const q=pick();const b=el("div","box");
   if(!q.length){b.append(el("p",null,curSet?"In diesem Lernset ist gerade nichts offen – alles gemeistert! 🎉":"Noch nichts zum Üben freigegeben."),el("p","mu","Im Tab „Wörter“ Vokabeln auswählen und freigeben."));box.append(b);return}
-  b.append(el("h3",null,"🎯 Quiz"),el("p","mu",`${q.length} Wörter · jedes kommt einmal dran · 3× in Folge richtig = gemeistert`));
+  const due=q.filter(isDue);
+  let next="";if(!due.length){const n=q.map(w=>st(w.id).due).filter(Boolean).sort()[0];if(n)next=" Die nächsten Wörter kommen "+whenTxt(n)+" dran."}
+  b.append(el("h3",null,"🎯 Quiz"),el("p",null,due.length?`Heute dran: ${due.length} von ${q.length} Wörtern`:"Für heute ist alles erledigt! 🎉"+next));
   const seg=el("div","seg");
   [["de2en","Deutsch → Englisch"],["en2de","Englisch → Deutsch"],["mix","Gemischt"]].forEach(([k,t])=>{
     const bt=el("button",dir===k?"on":"",t);bt.onclick=()=>{dir=k;lsSet("vt_dir",k);renderQuizStart()};seg.append(bt)});
-  const s=el("button","btn","Quiz starten");s.onclick=()=>{pool=shuf(q);qi=0;pts=0;nextQ()};
-  b.append(seg,s);box.append(b);
+  b.append(seg);
+  if(due.length){const s=el("button","btn",`Quiz starten (${due.length})`);s.onclick=()=>{pool=shuf(due);qi=0;pts=0;nextQ()};b.append(s)}
+  if(due.length<q.length){const a=el("button","btn"+(due.length?" g":""),`Alle üben (${q.length})`);a.onclick=()=>{pool=shuf(q);qi=0;pts=0;nextQ()};b.append(a)}
+  b.append(el("p","mu","Richtig = eine Stufe höher ●○○○○, Fehler = eine Stufe zurück. Richtig auf Stufe 5 = gemeistert. Bei „Alle üben“ zählen Wörter, die heute nicht dran sind, nur als Übung."));
+  box.append(b);
   const w=el("div","box");
   w.append(el("h3",null,"✍️ Schreibtraining"),el("p","mu","Du siehst das deutsche Wort und schreibst das englische. Zählt nicht fürs „Gemeistert“ – hier darfst du in Ruhe üben."));
   const ws=el("button","btn","Schreibtraining starten");ws.onclick=()=>startWrite(q);
@@ -253,11 +267,18 @@ function drawQ(){
 }
 function answer(ok,fb,b){
   cur.done=true;const w=cur.w,x=st(w.id);
+  const wasDue=isDue(w);let info="";
   if(x.status==="new")x.status="practice";
-  if(ok){x.streak++;pts++;if(x.streak>=3)x.status="done"}else x.streak=0;
+  x.level=x.level||0;
+  if(ok){pts++;
+    if(!wasDue)info="(Heute nicht dran – zählt als Übung.)";
+    else if(x.level>=5){x.status="done";info="Gemeistert 🏆"}
+    else{x.level++;x.due=addDays(INT[x.level]);info=`Stufe ${x.level}/5 ⬆️ · kommt ${whenTxt(x.due)}${x.due===today()?"":" wieder"}`}
+  }else{x.level=Math.max(x.level-1,0);x.due=today();info="Kommt heute nochmal – dann sitzt es. 🙂"}
   touch(w.id);header();
   fb.className="fb "+(ok?"ok":"no");
-  fb.textContent=pickOne(ok?OK_Q:NO_Q)+" "+`${w.en} = ${w.de}`+(ok&&x.status==="done"?" · Gemeistert 🏆":"");
+  fb.textContent=pickOne(ok?OK_Q:NO_Q)+" "+`${w.en} = ${w.de}`;
+  fb.append(el("div","mu",info));
   const n=el("button","btn","Weiter");n.onclick=()=>{qi++;nextQ()};b.append(n);
 }
 
@@ -365,7 +386,7 @@ function renderWords(){
     info.append(el("b",null,s.name),el("div","mu",`${s.vocab_ids.length} Wörter${d?" · "+d:""}`));
     const go=el("button","sm","Wieder üben"),del=el("button","sm","🗑");
     go.onclick=()=>{
-      s.vocab_ids.forEach(id=>{const x=st(id);x.active=true;if(x.status==="done"){x.status="practice";x.streak=0}touch(id)});
+      s.vocab_ids.forEach(id=>{const x=st(id);x.active=true;if(x.status==="done"){x.status="practice";x.level=4}x.due=today();touch(id)});
       curSet=s.id;lsSet("vt_set",s.id);show("ueben");
     };
     del.onclick=async()=>{
@@ -394,7 +415,7 @@ function renderWords(){
       const r=el("label","li"),cb=document.createElement("input");cb.type="checkbox";cb.style.cssText="width:22px;height:22px;flex:none";
       cb.dataset.id=w.id;
       const x=st(w.id);let t=(w.page?"S. "+w.page+" · ":"")+w.en+" – "+w.de;
-      if(x.active)t+=x.status==="done"?"  ✓ gemeistert":"  ● freigegeben";
+      if(x.active)t+="  "+dots(x);
       cb.checked=(x.active&&!rem.has(w.id))||add.has(w.id);
       cb.onchange=()=>{setCb(cb,cb.checked);upd()};
       const sp=el("span",null,t);sp.style.flex="1";r.append(cb,sp);b.append(r);cbs.push(cb);
@@ -405,8 +426,8 @@ function renderWords(){
   });
   const apply=()=>{
     if(rem.size&&!confirm(`${rem.size} Wort/Wörter wieder rausnehmen? Der Lernstand dieser Wörter wird zurückgesetzt.`))return false;
-    add.forEach(id=>{const x=st(id);x.active=true;x.status="new";x.streak=0;touch(id)});
-    rem.forEach(id=>{const x=st(id);x.active=false;x.status="new";x.streak=0;touch(id)});
+    add.forEach(id=>{const x=st(id);x.active=true;x.status="new";x.streak=0;x.level=0;x.due=today();touch(id)});
+    rem.forEach(id=>{const x=st(id);x.active=false;x.status="new";x.streak=0;x.level=0;x.due=null;touch(id)});
     add.clear();rem.clear();return true;
   };
   fb.onclick=()=>{if(apply())renderWords()};
@@ -439,10 +460,10 @@ function renderArchive(){
     const d=ws.filter(v=>st(v.id).status==="done");
     b.append(el("p","mu",`${d.length} von ${ws.length} gemeistert`));
     if(d.length<ws.length){const t=el("button","btn","Test geschrieben – alle ins Archiv");
-      t.onclick=()=>{if(confirm("Alle freigegebenen Vokabeln dieses Abschnitts als gemeistert markieren?")){ws.forEach(v=>{st(v.id).status="done";touch(v.id)});renderArchive()}};b.append(t)}
-    ws.forEach(v=>{const x=st(v.id),r=el("div","li");r.append(el("span",null,`${v.en} – ${v.de}`));
+      t.onclick=()=>{if(confirm("Alle freigegebenen Vokabeln dieses Abschnitts als gemeistert markieren?")){ws.forEach(v=>{const x=st(v.id);x.status="done";x.level=5;touch(v.id)});renderArchive()}};b.append(t)}
+    ws.forEach(v=>{const x=st(v.id),r=el("div","li"),sp=el("span");sp.style.flex="1";sp.append(el("div",null,`${v.en} – ${v.de}`),el("div","mu",dots(x)));r.append(sp);
       const a=el("button","sm",x.status==="done"?"Wieder aktivieren":"Kann ich, weg damit");
-      a.onclick=()=>{if(x.status==="done"){x.status="practice";x.streak=0}else x.status="done";touch(v.id);renderArchive()};
+      a.onclick=()=>{if(x.status==="done"){x.status="practice";x.level=1;x.due=today()}else{x.status="done";x.level=5}touch(v.id);renderArchive()};
       r.append(a);b.append(r)});
     box.append(b);
   });
