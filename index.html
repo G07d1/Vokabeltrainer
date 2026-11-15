@@ -42,9 +42,18 @@ h2{font-size:17px;margin:20px 4px 10px}h3{margin:0 0 6px;font-size:16px}
 .col{flex:1 1 150px;background:var(--box);border-radius:12px;padding:12px;font-size:14px}
 .col div{margin-top:6px}
 summary{font-weight:700;cursor:pointer;font-size:16px}
-input.t{width:100%;padding:14px;font-size:16px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin-top:8px}
+input.t,select.t{width:100%;padding:14px;font-size:16px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin-top:8px}
 #sync{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));background:#1e293b;color:#fff;padding:8px 14px;border-radius:99px;font-size:13px;display:none;z-index:9}
 .hid{display:none}
+.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{flex:1;padding:10px 4px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-weight:600;font-size:13px}
+.seg button.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+select.t{appearance:none;-webkit-appearance:none;font-weight:600;margin-top:0;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+.pick{margin:0 0 12px}
+.ans{font-size:24px;font-weight:800;letter-spacing:.5px;margin:6px 0}
+.dm{background:#fde68a;color:#1e293b;border-radius:3px;padding:0 1px}
+.kind{font-weight:700;margin-bottom:6px}
+.prompt{font-size:22px;font-weight:800;margin:10px 0 2px}
 .sticky{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom))}
 </style>
 </head>
@@ -74,7 +83,7 @@ async function rpc(fn,body){
 }
 
 // ===== Daten & Lernstand =====
-let ME=null, V=[], BOX=[], P={};
+let ME=null, V=[], BOX=[], P={}, SETS=[];
 const dirty=new Set(); let saveT=null;
 const st=id=>P[id]||(P[id]={active:false,status:"new",streak:0});
 const active=w=>st(w.id).active;
@@ -98,6 +107,28 @@ const shuf=a=>a.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(v=>v[1]);
 const clean=s=>s.replace(/^\(to\)\s*/,"");
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 const secName=w=>w.unit===w.section?w.unit:w.unit+" · "+w.section;
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}}
+function lsSet(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function speak(t){if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(t));u.lang="en-GB";speechSynthesis.speak(u)}}
+
+// ===== Lernsets =====
+let curSet=lsGet("vt_set",null);
+const setById=id=>SETS.find(s=>s.id===id);
+function pick(){
+  const s=curSet&&setById(curSet);
+  if(curSet&&!s){curSet=null;lsSet("vt_set",null)}
+  return s?V.filter(w=>s.vocab_ids.includes(w.id)&&open(w)):V.filter(open);
+}
+function setPicker(onChange){
+  const sel=el("select","t pick");
+  const o0=el("option",null,`Alle freigegebenen Wörter (${V.filter(open).length})`);o0.value="";sel.append(o0);
+  SETS.forEach(s=>{const n=V.filter(w=>s.vocab_ids.includes(w.id)&&open(w)).length;
+    const o=el("option",null,`📚 ${s.name} (${n})`);o.value=s.id;sel.append(o)});
+  sel.value=curSet&&setById(curSet)?curSet:"";
+  sel.onchange=()=>{curSet=sel.value||null;lsSet("vt_set",curSet);ci=0;onChange()};
+  return sel;
+}
 function header(){
   const a=V.filter(active),d=a.filter(w=>st(w.id).status==="done").length;
   $("stat").textContent=ME?`${ME.name} · Freigegeben: ${a.length-d} · Gemeistert: ${d}`:"Highlight 8";
@@ -123,7 +154,7 @@ async function login(name,pin){
   try{
     const d=await rpc("vt_load",{p_name:name,p_pin:pin});
     ME={name,pin};storeLogin(ME);
-    V=d.vocab||[];BOX=d.boxes||[];P={};
+    V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];
     (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak}});
     $("login").classList.add("hid");$("nav").classList.remove("hid");$("logout").classList.remove("hid");
     buildBoxes();show("lernen");
@@ -148,8 +179,9 @@ $("nav").onclick=e=>{const t=e.target.dataset.t;if(t)show(t)};
 let ci=0;
 function renderCards(){
   header();const box=$("lernen");box.innerHTML="";
-  const deck=V.filter(open);
-  if(!deck.length){const b=el("div","box");b.append(el("p",null,"Gerade sind keine Vokabeln freigegeben."),el("p","mu","Im Tab „Wörter“ die Vokabeln für den nächsten Test auswählen."));box.append(b);return}
+  if(SETS.length)box.append(setPicker(renderCards));
+  const deck=pick();
+  if(!deck.length){const b=el("div","box");b.append(el("p",null,curSet?"In diesem Lernset ist gerade nichts offen – alles gemeistert! 🎉":"Gerade sind keine Vokabeln freigegeben."),el("p","mu","Im Tab „Wörter“ die Vokabeln für den nächsten Test auswählen."));box.append(b);return}
   if(ci>=deck.length)ci=0;
   const w=deck[ci],x=st(w.id);
   const top=el("div","mu",`Karte ${ci+1} von ${deck.length} · ${secName(w)}${w.page?" · S. "+w.page:""}`);top.style.marginBottom="8px";
@@ -164,7 +196,7 @@ function renderCards(){
   si.append(f,b);sc.append(si);sc.onclick=()=>si.classList.toggle("f");
   box.append(top,sc);
   const sp=el("button","btn g","🔊 Anhören");
-  sp.onclick=()=>{if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(w.en));u.lang="en-GB";speechSynthesis.speak(u)}};
+  sp.onclick=()=>speak(w.en);
   box.append(sp);
   const r=el("div","row"),p=el("button","btn g","← Zurück"),n=el("button","btn","Weiter →");
   p.onclick=()=>{ci=(ci-1+deck.length)%deck.length;renderCards()};
@@ -172,20 +204,35 @@ function renderCards(){
   r.append(p,n);box.append(r);
 }
 
-// ===== Üben (Quiz, 3 Antworten, alle freigegebenen Wörter) =====
-let pool=[],qi=0,pts=0,cur=null;
+// ===== Üben: Start =====
+let dir=lsGet("vt_dir","mix");
 function renderQuizStart(){
-  header();const box=$("ueben");box.innerHTML="";const q=V.filter(open);const b=el("div","box");
-  if(!q.length){b.append(el("p",null,"Noch nichts zum Üben freigegeben."),el("p","mu","Im Tab „Wörter“ Vokabeln auswählen und freigeben."))}
-  else{b.append(el("p",null,`${q.length} Vokabeln sind bereit.`),el("p","mu","Jedes Wort kommt einmal dran. 3× in Folge richtig = gemeistert."));
-    const s=el("button","btn","Quiz starten");s.onclick=()=>{pool=shuf(q);qi=0;pts=0;nextQ()};b.append(s)}
-  box.append(b);
+  header();const box=$("ueben");box.innerHTML="";
+  if(SETS.length)box.append(setPicker(renderQuizStart));
+  const q=pick();const b=el("div","box");
+  if(!q.length){b.append(el("p",null,curSet?"In diesem Lernset ist gerade nichts offen – alles gemeistert! 🎉":"Noch nichts zum Üben freigegeben."),el("p","mu","Im Tab „Wörter“ Vokabeln auswählen und freigeben."));box.append(b);return}
+  b.append(el("h3",null,"🎯 Quiz"),el("p","mu",`${q.length} Wörter · jedes kommt einmal dran · 3× in Folge richtig = gemeistert`));
+  const seg=el("div","seg");
+  [["de2en","Deutsch → Englisch"],["en2de","Englisch → Deutsch"],["mix","Gemischt"]].forEach(([k,t])=>{
+    const bt=el("button",dir===k?"on":"",t);bt.onclick=()=>{dir=k;lsSet("vt_dir",k);renderQuizStart()};seg.append(bt)});
+  const s=el("button","btn","Quiz starten");s.onclick=()=>{pool=shuf(q);qi=0;pts=0;nextQ()};
+  b.append(seg,s);box.append(b);
+  const w=el("div","box");
+  w.append(el("h3",null,"✍️ Schreibtraining"),el("p","mu","Du siehst das deutsche Wort und schreibst das englische. Zählt nicht fürs „Gemeistert“ – hier darfst du in Ruhe üben."));
+  const ws=el("button","btn","Schreibtraining starten");ws.onclick=()=>startWrite(q);
+  w.append(ws);box.append(w);
 }
+
+// ===== Üben: Quiz (3 Antworten) =====
+let pool=[],qi=0,pts=0,cur=null;
+const OK_Q=["Richtig! 🎉","Super! ⭐","Genau! 👏","Stark! 💪"];
+const NO_Q=["Nicht ganz – kein Problem! 🙂","Knapp daneben – das merkst du dir jetzt. 💡","Macht nichts, dafür üben wir ja! 🙂"];
 function nextQ(){
   const box=$("ueben");
   if(qi>=pool.length){box.innerHTML="";const b=el("div","box");b.append(el("h3",null,`Fertig! ${pts} von ${pool.length} richtig 🎉`));
     const s=el("button","btn","Nochmal");s.onclick=renderQuizStart;b.append(s);box.append(b);header();return}
-  const w=pool[qi];cur={w,t:Math.random()<.5?"de2en":"en2de",done:false};drawQ();
+  const w=pool[qi];const t=dir==="mix"?(Math.random()<.5?"de2en":"en2de"):dir;
+  cur={w,t,done:false};drawQ();
 }
 function drawQ(){
   const {w,t}=cur;const box=$("ueben");box.innerHTML="";const b=el("div","box");
@@ -209,8 +256,98 @@ function answer(ok,fb,b){
   if(ok){x.streak++;pts++;if(x.streak>=3)x.status="done"}else x.streak=0;
   touch(w.id);header();
   fb.className="fb "+(ok?"ok":"no");
-  fb.textContent=(ok?"Richtig! ":"Leider nein. ")+`${w.en} = ${w.de}`+(ok&&x.status==="done"?" · Gemeistert 🏆":"");
+  fb.textContent=pickOne(ok?OK_Q:NO_Q)+" "+`${w.en} = ${w.de}`+(ok&&x.status==="done"?" · Gemeistert 🏆":"");
   const n=el("button","btn","Weiter");n.onclick=()=>{qi++;nextQ()};b.append(n);
+}
+
+// ===== Üben: Schreibtraining =====
+const W_START=["Los geht's! Fehler sind ausdrücklich erlaubt – genau so lernt man. 💪","Schreib einfach, wie du denkst. Wir schauen gemeinsam drauf. ✍️","Kein Stress, kein Zeitdruck. Du schaffst das! 🙂"];
+const W_OK=["Richtig geschrieben! 🎉","Perfekt! ⭐","Sitzt! 👏","Stark, genau so! ✍️","Super, weiter so! 🚀"];
+const W_NEAR=["Ganz knapp! Nur eine Kleinigkeit ist anders. 🤏","So nah dran! Schau mal genau hin: 👀","Fast perfekt – nur ein kleiner Unterschied:"];
+const W_NO=["Kein Problem – das Wort ist auch knifflig. So schreibt man es:","Macht nichts! Genau dafür üben wir. Schau mal:","Nicht schlimm – beim nächsten Mal sitzt es. So geht's:"];
+const W_SKIP=["Gut, dass du nachschaust! So schreibt man es:","Klug – lieber nachschauen als raten. So geht's:"];
+const W_STREAK={3:"3 richtig hintereinander! 🔥",5:"5 am Stück – du bist on fire! 🔥🔥",8:"8 in Folge – Wahnsinn! 🏆"};
+function norm(s){return s.toLowerCase().replace(/[’‘`´]/g,"'").replace(/'/g,"").replace(/\.\.\.|…/g," ").replace(/[.,!?;"„“()²]/g,"").replace(/^\s*to\s+/,"").replace(/\s+/g," ").trim()}
+function variants(en){
+  const out=new Set();
+  en.replace(/’/g,"'").split(/\s=\s|\s\/\s/).forEach(p=>{
+    p=p.replace(/\((?:AE|BE|pl|infml|AE, infml|infml auch:[^)]*|kurz auch:[^)]*|=[^)]*)\)/g," ");
+    p=p.split(/, pl /)[0].split(":")[0];
+    [p.replace(/\([^)]*\)/g," "),p.replace(/[()]/g,"")].forEach(v=>{
+      const n=norm(v);if(!n)return;out.add(n);
+      // "money/time" -> "money" oder "time"
+      const t=n.split(" "),k=t.findIndex(x=>x.includes("/"));
+      if(k>=0)t[k].split("/").forEach(alt=>{const c=[...t];c[k]=alt;out.add(c.join(" "))});
+    });
+  });
+  return [...out];
+}
+function lev(a,b){const d=Array.from({length:a.length+1},(_,i)=>[i]);for(let j=1;j<=b.length;j++)d[0][j]=j;
+  for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+function markDiff(correct,typed){
+  // markiert Buchstaben im richtigen Wort, die in der Eingabe fehlen oder anders sind
+  const a=correct,b=typed.toLowerCase(),L=Array.from({length:a.length+1},()=>Array(b.length+1).fill(0));
+  for(let i=a.length-1;i>=0;i--)for(let j=b.length-1;j>=0;j--)L[i][j]=a[i].toLowerCase()===b[j]?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+  const frag=document.createDocumentFragment();let i=0,j=0;
+  while(i<a.length){
+    if(j<b.length&&a[i].toLowerCase()===b[j]){frag.append(a[i]);i++;j++}
+    else if(j<b.length&&L[i][j+1]>=L[i+1][j])j++;
+    else{const m=el("span","dm",a[i]);frag.append(m);i++}
+  }
+  return frag;
+}
+let wPool=[],wi=0,wStreak=0,wFirst=new Set(),wTricky=new Set(),wRetry=new Set();
+function startWrite(q){wPool=shuf(q);wi=0;wStreak=0;wFirst=new Set();wTricky=new Set();wRetry=new Set();drawW(pickOne(W_START))}
+function drawW(intro){
+  const box=$("ueben");box.innerHTML="";
+  if(wi>=wPool.length)return endW();
+  const w=wPool[wi],b=el("div","box");
+  b.append(el("div","mu",`✍️ Wort ${wi+1}/${wPool.length} · ${secName(w)}`+(wRetry.has(w.id)?" · zweiter Versuch":"")));
+  if(intro){const i=el("p","kind",intro);b.append(i)}
+  b.append(el("div","mu","Wie schreibt man auf Englisch:"),el("div","prompt",w.de));
+  const inp=el("input","t");inp.placeholder="Englisch eintippen …";
+  inp.setAttribute("autocapitalize","off");inp.setAttribute("autocorrect","off");inp.setAttribute("autocomplete","off");inp.spellcheck=false;
+  const r=el("div","row"),skip=el("button","btn g","Weiß ich nicht"),chk=el("button","btn","Prüfen");
+  r.append(skip,chk);const fb=el("div");b.append(inp,r,fb);box.append(b);
+  let done=false;
+  const finish=(kind)=>{
+    if(done)return;done=true;inp.disabled=true;r.remove();
+    const typed=inp.value.trim(),vs=variants(w.en),n=norm(typed);
+    let res=kind;
+    if(!res){if(n&&vs.includes(n))res="ok";else if(n.length>2&&Math.min(...vs.map(v=>lev(n,v)))<=2)res="near";else res="no"}
+    const f=el("div","fb "+(res==="ok"?"ok":"no"));
+    if(res==="ok"){
+      wStreak++;if(!wRetry.has(w.id))wFirst.add(w.id);
+      f.append(el("div","kind",pickOne(W_OK)+(W_STREAK[wStreak]?" "+W_STREAK[wStreak]:"")),el("div",null,`${clean(w.en)} = ${w.de}`));
+    }else{
+      wStreak=0;wTricky.add(w.id);
+      f.append(el("div","kind",pickOne(res==="near"?W_NEAR:res==="skip"?W_SKIP:W_NO)));
+      const ans=el("div","ans");ans.append(res==="near"||res==="no"?markDiff(clean(w.en),typed):clean(w.en));f.append(ans);
+      if(typed&&res!=="skip")f.append(el("div","mu","Du hast geschrieben: "+typed));
+      if(w.forms)f.append(el("div","mu","Formen: "+w.forms));
+      if(w.ex){const e=el("div","mu","📖 "+w.ex);e.style.marginTop="6px";f.append(e)}
+      if(!wRetry.has(w.id)){wRetry.add(w.id);wPool.push(w);f.append(el("div","mu","Das Wort kommt am Ende nochmal – dann klappt's bestimmt. 😉"))}
+    }
+    const h=el("button","btn g","🔊 Anhören");h.onclick=()=>speak(w.en);
+    const nx=el("button","btn","Weiter");nx.onclick=()=>{wi++;drawW()};
+    fb.append(f,h,nx);
+    setTimeout(()=>nx.focus(),50);
+  };
+  chk.onclick=()=>finish(null);skip.onclick=()=>finish("skip");
+  inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();finish(null)}};
+  inp.focus();
+}
+function endW(){
+  const box=$("ueben");box.innerHTML="";const b=el("div","box");
+  const all=new Set(wPool.map(w=>w.id)).size;
+  b.append(el("h3",null,`Geschafft! 🎉 Du hast ${all} Wörter geschrieben.`));
+  if(!wTricky.size)b.append(el("p",null,"Alles beim ersten Versuch richtig – richtig stark! 🏆"));
+  else{b.append(el("p",null,"Super durchgehalten! 💪 Diese Wörter waren heute knifflig – beim nächsten Mal sitzen sie:"));
+    V.filter(w=>wTricky.has(w.id)).forEach(w=>{const r=el("div","li");r.append(el("b",null,clean(w.en)),el("span","mu",w.de));b.append(r)})}
+  const again=el("button","btn","Nochmal schreiben");again.onclick=()=>startWrite(pick());
+  const tricky=el("button","btn g","Nur die kniffligen nochmal");tricky.onclick=()=>startWrite(V.filter(w=>wTricky.has(w.id)));
+  const back=el("button","btn g","Zurück");back.onclick=renderQuizStart;
+  b.append(again);if(wTricky.size)b.append(tricky);b.append(back);box.append(b);
 }
 
 // ===== Wörter (Auswahl, Freigabe & Zurücknehmen) =====
@@ -218,8 +355,29 @@ const add=new Set(),rem=new Set();
 function groups(list){const g=new Map();list.forEach(w=>{const k=secName(w);if(!g.has(k))g.set(k,[]);g.get(k).push(w)});return g}
 function renderWords(){
   header();const box=$("woerter");box.innerHTML="";
+  // Lernsets
+  const sb=el("div","box");sb.append(el("h3",null,"📚 Lernsets"));
+  if(!SETS.length)sb.append(el("p","mu","Noch keine Lernsets. Testwörter unten ankreuzen und auf „Als Lernset speichern“ tippen."));
+  SETS.forEach(s=>{
+    const r=el("div","li"),info=el("span");info.style.flex="1";
+    const d=s.created_at?new Date(s.created_at).toLocaleDateString("de-DE"):"";
+    info.append(el("b",null,s.name),el("div","mu",`${s.vocab_ids.length} Wörter${d?" · "+d:""}`));
+    const go=el("button","sm","Wieder üben"),del=el("button","sm","🗑");
+    go.onclick=()=>{
+      s.vocab_ids.forEach(id=>{const x=st(id);x.active=true;if(x.status==="done"){x.status="practice";x.streak=0}touch(id)});
+      curSet=s.id;lsSet("vt_set",s.id);show("ueben");
+    };
+    del.onclick=async()=>{
+      if(!confirm(`Lernset „${s.name}“ löschen? Die Wörter selbst und ihr Lernstand bleiben erhalten.`))return;
+      try{await rpc("vt_set_delete",{p_name:ME.name,p_pin:ME.pin,p_id:s.id});SETS=SETS.filter(z=>z.id!==s.id);if(curSet===s.id){curSet=null;lsSet("vt_set",null)}renderWords()}
+      catch(e){alert("Löschen hat nicht geklappt. Bitte Internet prüfen.")}
+    };
+    r.append(info,go,del);sb.append(r);
+  });
+  box.append(sb);
   box.append(el("p","mu","Häkchen setzen = freigeben, Häkchen entfernen = wieder rausnehmen. Danach unten auf „Übernehmen“ tippen."));
   const fb=el("button","btn sticky","");
+  const sv=el("button","btn g","💾 Als Lernset speichern");
   const upd=()=>{const n=add.size+rem.size;fb.textContent=n?`Übernehmen (${add.size?"+"+add.size:""}${add.size&&rem.size?" / ":""}${rem.size?"−"+rem.size:""})`:"Übernehmen";fb.disabled=!n};
   const setCb=(c,on)=>{const id=c.dataset.id,was=st(id).active;c.checked=on;
     add.delete(id);rem.delete(id);if(on&&!was)add.add(id);if(!on&&was)rem.add(id)};
@@ -241,13 +399,26 @@ function renderWords(){
     all.onclick=()=>{const on=!cbs.every(c=>c.checked);cbs.forEach(c=>setCb(c,on));all.textContent=on?"Alle abwählen":"Alle wählen";upd()};
     box.append(b);
   });
-  fb.onclick=()=>{
-    if(rem.size&&!confirm(`${rem.size} Wort/Wörter wieder rausnehmen? Der Lernstand dieser Wörter wird zurückgesetzt.`))return;
+  const apply=()=>{
+    if(rem.size&&!confirm(`${rem.size} Wort/Wörter wieder rausnehmen? Der Lernstand dieser Wörter wird zurückgesetzt.`))return false;
     add.forEach(id=>{const x=st(id);x.active=true;x.status="new";x.streak=0;touch(id)});
     rem.forEach(id=>{const x=st(id);x.active=false;x.status="new";x.streak=0;touch(id)});
-    add.clear();rem.clear();renderWords();
+    add.clear();rem.clear();return true;
   };
-  upd();box.append(fb);
+  fb.onclick=()=>{if(apply())renderWords()};
+  sv.onclick=async()=>{
+    if(!apply())return;
+    const ids=V.filter(open).map(w=>w.id);
+    if(!ids.length){alert("Es sind gerade keine Wörter freigegeben. Erst Wörter ankreuzen.");renderWords();return}
+    const name=prompt(`Lernset mit ${ids.length} Wörtern speichern.\nName:`,"Test "+new Date().toLocaleDateString("de-DE"));
+    if(!name||!name.trim()){renderWords();return}
+    try{const id=await rpc("vt_set_save",{p_name:ME.name,p_pin:ME.pin,p_set_name:name.trim(),p_ids:ids});
+      SETS.unshift({id,name:name.trim(),vocab_ids:ids,created_at:new Date().toISOString()});curSet=id;lsSet("vt_set",id);renderWords();window.scrollTo(0,0)}
+    catch(e){alert("Speichern hat nicht geklappt. Bitte Internet prüfen.")}
+  };
+  upd();
+  box.append(el("p","mu","„Als Lernset speichern“ merkt sich alle gerade freigegebenen, noch nicht gemeisterten Wörter."));
+  box.append(sv,fb);
 }
 
 // ===== Archiv =====
