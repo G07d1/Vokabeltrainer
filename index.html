@@ -472,22 +472,109 @@ function renderArchive(){
 // ===== Merkkästen =====
 function buildBoxes(){
   const box=$("kaesten");box.innerHTML="";
-  box.append(el("p","mu","Die blauen Kästen aus dem Buch."));
+  box.append(el("p","mu","Die blauen Kästen aus dem Buch. Bei ✏️ gibt es eine Übung dazu."));
   let lastUnit=null;
   BOX.forEach(x=>{
     if(x.unit!==lastUnit){lastUnit=x.unit;box.append(el("h2",null,lastUnit))}
     const c=x.content||{};const d=document.createElement("details");d.className="box";
-    d.append(el("summary",null,x.title));
+    const drills=[...(c.drills||[])];
+    if(c.exercise)drills.unshift({type:"gap",...c.exercise});
+    d.append(el("summary",null,(drills.length?"✏️ ":"")+x.title));
     const g=el("div","cols");
     (c.cols||[]).forEach(col=>{const k=el("div","col");if(col.h)k.append(el("b",null,col.h));(col.l||[]).forEach(t=>k.append(el("div",null,t)));g.append(k)});
     d.append(g);if(c.note)d.append(el("p",null,c.note));
-    if(c.exercise){const ex=c.exercise;d.append(el("h3",null,ex.title));
-      ex.items.forEach(([s,a])=>{const r=el("div");r.style.marginTop="12px";r.append(el("div",null,s));const f=el("div","mu");
-        ex.options.forEach(o=>{const bt=el("button","sm",o);bt.style.cssText="margin:6px 6px 0 0";bt.onclick=()=>{f.textContent=o===a?"✅ Richtig":"❌ Nicht ganz, richtig: "+a};r.append(bt)});
-        r.append(f);d.append(r)})}
+    drills.forEach(dr=>{
+      const area=el("div");
+      const bt=el("button","btn",`✏️ ${dr.title||"Üben"}`);
+      bt.onclick=()=>{bt.remove();area.innerHTML="";DRILL[dr.type](area,dr,()=>{area.innerHTML="";area.append(bt)})};
+      area.append(bt);d.append(area);
+    });
     box.append(d);
   });
 }
+const D_OK=["Richtig! 🎉","Super! ⭐","Genau! 👏","Stark! 💪","Sitzt! ✅"];
+const D_NO=["Nicht ganz – kein Problem! 🙂","Knapp daneben – jetzt weißt du's. 💡","Macht nichts, dafür üben wir ja! 🙂"];
+function doneBox(area,msg,again,close){
+  const b=el("div","fb ok");b.append(el("div","kind",msg));area.append(b);
+  const r=el("div","row"),n=el("button","btn","Nochmal"),z=el("button","btn g","Fertig");
+  n.onclick=again;z.onclick=close;r.append(n,z);area.append(r);
+}
+const DRILL={
+  // Lückensätze: eine Lücke, Auswahl aus den Möglichkeiten
+  gap(area,dr,close){
+    const items=shuf(dr.items);let i=0,first=0;
+    const step=()=>{
+      area.innerHTML="";
+      if(i>=items.length)return doneBox(area,first===items.length?"Alles richtig – super gemacht! 🏆":"Geschafft! 🎉 Du hast alle Sätze durch.",()=>DRILL.gap(area,dr,close),close);
+      const [sen,ans,full]=items[i];let tried=false;
+      area.append(el("div","mu",`${i+1}/${items.length}`),el("div","prompt",sen));
+      const fb=el("div");
+      dr.options.forEach(o=>{const bt=el("button","opt",o);bt.onclick=()=>{
+        if(bt.disabled)return;
+        if(o===ans){if(!tried)first++;area.querySelectorAll(".opt").forEach(x=>x.disabled=true);bt.classList.add("ok");
+          fb.innerHTML="";fb.append(el("div","fb ok",pickOne(D_OK)+" "+(full||sen.replace("___",ans))));
+          const n=el("button","btn","Weiter");n.onclick=()=>{i++;step()};fb.append(n);n.focus();
+        }else{tried=true;bt.classList.add("no");bt.disabled=true;fb.innerHTML="";fb.append(el("div","fb no",pickOne(D_NO)+" Probier's nochmal."))}
+      };area.append(bt)});
+      area.append(fb);
+    };step();
+  },
+  // Paare zuordnen: links antippen, dann rechts
+  match(area,dr,close){
+    area.innerHTML="";
+    if(dr.hint)area.append(el("p","mu",dr.hint));
+    const L=shuf(dr.pairs.map((p,i)=>({t:p[0],i}))),R=shuf(dr.pairs.map((p,i)=>({t:p[1],i})));
+    const grid=el("div");grid.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px";
+    const cl=el("div"),cr=el("div");grid.append(cl,cr);
+    const msg=el("div","mu","Tippe links ein Wort an, dann rechts das passende.");msg.style.marginTop="8px";
+    let sel=null,left=dr.pairs.length;
+    const mk=(o,side)=>{const b=el("button","opt",o.t);b.style.cssText="margin-top:0;margin-bottom:8px;font-size:14px;padding:12px";
+      b.onclick=()=>{
+        if(b.disabled)return;
+        if(side==="L"){cl.querySelectorAll(".opt").forEach(x=>x.style.outline="");sel={o,b};b.style.outline="3px solid var(--pr)";return}
+        if(!sel){msg.textContent="Erst links ein Wort antippen. 🙂";return}
+        if(sel.o.i===o.i){[sel.b,b].forEach(x=>{x.classList.remove("no");x.classList.add("ok");x.disabled=true;x.style.outline=""});sel=null;left--;
+          msg.textContent=pickOne(D_OK);
+          if(!left){area.append(el("div"));doneBox(area,"Alle Paare gefunden! 🎉",()=>DRILL.match(area,dr,close),close)}
+        }else{b.classList.add("no");msg.textContent=pickOne(D_NO);setTimeout(()=>{if(!b.disabled)b.classList.remove("no")},700)}
+      };return b};
+    L.forEach(o=>cl.append(mk(o,"L")));R.forEach(o=>cr.append(mk(o,"R")));
+    area.append(grid,msg);
+  },
+  // Verbformen eintippen: Grundform sehen, 2. und 3. Form schreiben
+  forms(area,dr,close){
+    let pool=shuf(dr.items),i=0,retry=new Set(),tricky=new Set();
+    const n=s=>s.toLowerCase().replace(/^\s*\(?to\)?\s+/,"").replace(/\s+/g," ").trim();
+    const step=()=>{
+      area.innerHTML="";
+      if(i>=pool.length){
+        const msg=tricky.size?"Geschafft! 💪 Diese Verben üben wir nochmal: "+[...tricky].join(", "):"Alles beim ersten Versuch richtig – stark! 🏆";
+        return doneBox(area,msg,()=>DRILL.forms(area,dr,close),close);
+      }
+      const [base,f2,f3,de]=pool[i];
+      area.append(el("div","mu",`${i+1}/${pool.length}`+(retry.has(base)?" · zweiter Versuch":"")),el("div","prompt",`(to) ${base}`),el("div","mu",de));
+      const mkIn=ph=>{const x=el("input","t");x.placeholder=ph;x.setAttribute("autocapitalize","off");x.setAttribute("autocorrect","off");x.setAttribute("autocomplete","off");x.spellcheck=false;return x};
+      const a=mkIn("2. Form (simple past)"),b=mkIn("3. Form (past participle)");
+      const chk=el("button","btn","Prüfen"),fb=el("div");
+      area.append(a,b,chk,fb);
+      const go=()=>{
+        if(chk.disabled)return;chk.disabled=true;a.disabled=b.disabled=true;
+        const ok2=n(a.value)===f2,ok3=n(b.value)===f3;
+        const f=el("div","fb "+(ok2&&ok3?"ok":"no"));
+        if(ok2&&ok3)f.append(el("div","kind",pickOne(D_OK)));
+        else{f.append(el("div","kind",(ok2||ok3?"Halb richtig – gut! ":"")+"So geht's:"));tricky.add(base);
+          if(!retry.has(base)){retry.add(base);pool.push(pool[i])}}
+        const ans=el("div","ans");ans.textContent=`${base} – ${f2} – ${f3}`;f.append(ans);
+        if(!(ok2&&ok3))f.append(el("div","mu",(ok2?"✓ ":"✗ ")+"2. Form: "+f2+"   "+(ok3?"✓ ":"✗ ")+"3. Form: "+f3));
+        const h=el("button","btn g","🔊 Anhören");h.onclick=()=>speak(`${base}, ${f2}, ${f3}`);
+        const nx=el("button","btn","Weiter");nx.onclick=()=>{i++;step()};
+        fb.append(f,h,nx);setTimeout(()=>nx.focus(),50);
+      };
+      chk.onclick=go;a.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();b.focus()}};b.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go()}};
+      a.focus();
+    };step();
+  }
+};
 
 // ===== Start =====
 const saved=loadSaved();
