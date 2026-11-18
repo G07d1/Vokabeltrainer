@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Wortwind-Crew – Entwurf</title>
+<style>
+:root{--ink:#1e1b4b;--bg:#eef2ff;--card:#fff;--mu:#64748b;--pr:#4f46e5;--sun:#facc15}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.45}
+.hero{background:linear-gradient(180deg,#1e3a8a 0%,#6366f1 60%,#f9a8d4 100%);color:#fff;padding:calc(28px + env(safe-area-inset-top)) 16px 0;text-align:center;overflow:hidden}
+.hero small{display:inline-block;background:rgba(255,255,255,.18);border-radius:99px;padding:4px 12px;font-weight:700;font-size:12px;letter-spacing:.5px}
+.hero h1{font-size:34px;line-height:1.05;margin:12px 0 8px;font-weight:900;text-shadow:0 3px 0 rgba(30,27,75,.35)}
+.hero p{max-width:520px;margin:0 auto;font-size:16px;opacity:.95}
+.hero .ship{max-width:420px;margin:18px auto -6px;animation:float 4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-8px)}}
+main{max-width:720px;margin:0 auto;padding:16px}
+h2{font-size:22px;margin:28px 4px 4px;font-weight:900}
+.lead{color:var(--mu);margin:0 4px 12px}
+.card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:12px;box-shadow:0 2px 0 rgba(30,27,75,.08)}
+.crew{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mate{background:var(--card);border-radius:20px;padding:10px 12px 14px;text-align:center;box-shadow:0 2px 0 rgba(30,27,75,.08)}
+.mate .pic{height:170px}
+.mate .pic svg{height:100%;width:100%}
+.mate b{display:block;font-size:17px}
+.role{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:99px;margin:4px 0 6px}
+.mate p{margin:0;font-size:13px;color:var(--mu)}
+.mate .q{display:block;margin-top:8px;font-size:13px;font-style:italic;color:var(--ink)}
+.ships{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;font-size:12px;font-weight:700}
+.ships div svg{width:100%}
+.map{max-width:380px;margin:0 auto}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center;font-size:12px;font-weight:700}
+.badges svg{width:100%;max-width:80px}
+.badges span{display:block;color:var(--mu);font-weight:600}
+/* Mockups */
+.phone{max-width:340px;margin:0 auto;border:8px solid var(--ink);border-radius:34px;overflow:hidden;background:#f1f5f9}
+.ph-head{background:var(--pr);color:#fff;padding:10px 12px;font-weight:800;font-size:14px}
+.ph-body{padding:12px}
+.say{display:flex;gap:8px;align-items:flex-end;margin-bottom:10px}
+.say .av{width:64px;height:64px;flex:none}
+.say .av svg{width:100%;height:100%}
+.bub{background:#fff;border:2.5px solid var(--ink);border-radius:16px 16px 16px 4px;padding:8px 10px;font-size:13px;font-weight:600;position:relative}
+.mini{background:#fff;border-radius:14px;padding:10px;font-size:13px;margin-bottom:8px}
+.btn{display:block;text-align:center;background:var(--pr);color:#fff;border-radius:12px;padding:11px;font-weight:800;font-size:14px;margin-top:8px}
+.btn.g{background:#fff;color:var(--ink);border:1px solid #e2e8f0}
+.bad{background:#ffe4e6;border-radius:12px;padding:10px;font-size:13px}
+.ans{font-size:20px;font-weight:800}.dm{background:#fde68a;border-radius:3px;padding:0 1px}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:700px){.grid2{grid-template-columns:1fr 1fr}.crew{grid-template-columns:repeat(4,1fr)}}
+ul.k{margin:6px 0 0;padding-left:20px}ul.k li{margin:4px 0}
+footer{text-align:center;color:var(--mu);font-size:12px;padding:24px 16px 40px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <small>ENTWURF · VOKABELTRAINER</small>
+  <h1>⚡ Die Wortwind-Crew</h1>
+  <p>Ein Sturm hat die englischen Wörter über ein fliegendes Inselreich verstreut. Die Crew des Luftschiffs <b>Wortwind</b> holt sie zurück – und jedes gemeisterte Wort lädt den Antrieb auf.</p>
+  <div class="ship" id="heroShip"></div>
+</header>
+
+<main>
+  <h2>Die Crew</h2>
+  <p class="lead">Jeder hat eine Aufgabe – und taucht genau dann auf, wenn er gebraucht wird.</p>
+  <div class="crew" id="crew"></div>
+
+  <h2>Die Inselkarte</h2>
+  <p class="lead">Jede Insel ist ein Abschnitt aus dem Buch. Mit jedem gemeisterten Wort füllt sich der Ring – bei 100 % gibt's einen Stern und eine Belohnung.</p>
+  <div class="card"><div class="map" id="map"></div></div>
+
+  <h2>Die Wortwind wächst mit</h2>
+  <p class="lead">Fertige Inseln bringen Schiffs-Upgrades.</p>
+  <div class="card ships" id="ships"></div>
+
+  <h2>Spezialkräfte</h2>
+  <p class="lead">Für jede Merkkasten-Übung gibt's ein Abzeichen – Doc Syntax verleiht sie höchstpersönlich.</p>
+  <div class="card badges" id="badges"></div>
+
+  <h2>So sieht's im Trainer aus</h2>
+  <p class="lead">Der Lernteil bleibt so übersichtlich wie jetzt – die Crew meldet sich in Sprechblasen.</p>
+  <div class="grid2">
+    <div>
+      <div class="phone">
+        <div class="ph-head">⚡ Wortwind · David</div>
+        <div class="ph-body">
+          <div class="say"><div class="av" data-c="blitz"></div><div class="bub">Leinen los! Heute holen wir uns 8 Wörter zurück! ⚡</div></div>
+          <div class="mini"><b>🎯 Quiz</b><br>Heute dran: 8 von 22 Wörtern<span class="btn">Quiz starten (8)</span></div>
+          <div class="say"><div class="av" data-c="rio"></div><div class="bub">Test am Freitag? Dein Lernset „Unit 1 Story“ ist bereit. 🗺️</div></div>
+        </div>
+      </div>
+      <p class="lead" style="text-align:center;margin-top:8px">Start: Käpt'n Blitz feuert an, Rio plant.</p>
+    </div>
+    <div>
+      <div class="phone">
+        <div class="ph-head">✍️ Schreibtraining</div>
+        <div class="ph-body">
+          <div class="mini">Wie schreibt man auf Englisch:<br><b style="font-size:18px">Wolkenkratzer</b></div>
+          <div class="say"><div class="av" data-c="pixel" data-f="calm"></div><div class="bub">Fast! Nur eine Kleinigkeit war anders. 🙂</div></div>
+          <div class="bad"><div class="ans">sky<span class="dm">s</span>craper</div>Du hast geschrieben: skycraper<br>Das Wort kommt am Ende nochmal.</div>
+        </div>
+      </div>
+      <p class="lead" style="text-align:center;margin-top:8px">Fehler: Pixel bleibt ruhig und zeigt, wo's hakt.</p>
+    </div>
+  </div>
+
+  <h2>Spielregeln</h2>
+  <div class="card">
+    <ul class="k">
+      <li><b>Keine Strafen:</b> Fehler kosten nie etwas – nur Üben bringt Fortschritt.</li>
+      <li><b>Kein Durchklicken:</b> Energie gibt's nur für Wörter, die wirklich gemeistert sind.</li>
+      <li><b>Kein Zeitdruck:</b> Wer mal einen Tag nicht übt, verliert nichts.</li>
+      <li><b>Austauschbar:</b> Lieber Ninjas oder Weltraum? Dann tauschen wir nur das Thema – der Lernstand bleibt.</li>
+    </ul>
+  </div>
+</main>
+<footer>Entwurf – eigene Figuren, eigene Welt. Noch nicht im Trainer eingebaut.</footer>
+
+<script src="theme-wortwind.js"></script>
+<script>
+const T=THEME,$=id=>document.getElementById(id);
+$("heroShip").innerHTML=T.shipSvg(3);
+const info={
+  blitz:{c:"#ef4444",p:"Lautes Großmaul mit Fliegerbrille. Feiert jeden Erfolg, als hätte er die Welt gerettet.",q:"„Drei richtig am Stück? DAS ist Wortwind-Niveau!“"},
+  pixel:{c:"#14b8a6",p:"Schwebender Mini-Roboter. Sein Bildschirm-Gesicht zeigt, wie er sich fühlt. Bleibt immer ruhig.",q:"„Kein Ding. Wir schauen's uns zusammen an.“"},
+  syntax:{c:"#22c55e",p:"Uralter Papagei mit Doktorhut. Liebt Regeln über alles – und gibt ein bisschen damit an.",q:"„Ahem! Eine Regel, junger Freund – und zwar eine gute.“"},
+  rio:{c:"#f97316",p:"Skaterin mit Karten-Drohne. Plant Lernsets und weiß immer, was als Nächstes dran ist.",q:"„Test am Freitag? Ich plan dir die Route.“"}
+};
+Object.entries(T.crew).forEach(([k,m])=>{
+  const d=document.createElement("div");d.className="mate";
+  d.innerHTML=`<div class="pic">${m.svg()}</div><b>${m.name}</b><span class="role" style="background:${info[k].c}22;color:${info[k].c}">${m.role}</span><p>${info[k].p}</p><span class="q">${info[k].q}</span>`;
+  $("crew").append(d);
+});
+$("map").innerHTML=T.mapSvg([1,.6,.25,0,0,0,0],2,2);
+["Stufe 1 · Start","Stufe 2 · Flügel-Segel","Stufe 3 · Turbo & Konfetti"].forEach((t,i)=>{
+  const d=document.createElement("div");d.innerHTML=T.shipSvg(i+1)+t;$("ships").append(d)});
+[["⏳","#f59e0b","Zeitkontrolle","since / for"],["🔁","#8b5cf6","Wiederholer","re-"],["💥","#ef4444","Formwandler","Irregular verbs"],["🌉","#3b82f6","Brückenbauer","it was built"],
+ ["🇺🇸","#14b8a6","Übersetzer","BE / AE"],["🦸","#22c55e","Ersatz-Held","can → be able to"],["⏱️","#ec4899","Gleichzeitig","during / while"],["🔒","#000","","noch geheim",1]]
+.forEach(([i,c,n,s,l])=>{const d=document.createElement("div");d.innerHTML=T.badge(i,c,l)+(n||"???")+`<span>${s}</span>`;$("badges").append(d)});
+document.querySelectorAll(".av").forEach(a=>{const m=T.crew[a.dataset.c];a.innerHTML=m.svg(a.dataset.f)});
+</script>
+</body>
+</html>
