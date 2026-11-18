@@ -306,7 +306,23 @@ const LINES={
   }
 };
 
-window.THEME={id:"wortwind",name:"Die Wortwind-Crew",ship:"Wortwind",
+const BADGES={
+  b_money:{icon:"💰",name:"Geldprofi",color:"#eab308"},
+  b_bigtall:{icon:"📏",name:"Größenmeister",color:"#0ea5e9"},
+  b_werden:{icon:"🦋",name:"Verwandler",color:"#a855f7"},
+  b_built:{icon:"🌉",name:"Brückenbauer",color:"#3b82f6"},
+  b_letters:{icon:"🔤",name:"Buchstabenjäger",color:"#f97316"},
+  b_beae:{icon:"🇺🇸",name:"Übersetzer",color:"#14b8a6"},
+  b_irr2:{icon:"💥",name:"Formwandler I",color:"#ef4444"},
+  b_sameform:{icon:"🎭",name:"Doppelgänger",color:"#ec4899"},
+  b_modal:{icon:"🦸",name:"Ersatz-Held",color:"#22c55e"},
+  b_same4:{icon:"🎭",name:"Doppelgänger II",color:"#db2777"},
+  b_re:{icon:"🔁",name:"Wiederholer",color:"#8b5cf6"},
+  b_seit:{icon:"⏳",name:"Zeitkontrolle",color:"#f59e0b"},
+  b_waehrend:{icon:"⏱️",name:"Gleichzeitig",color:"#f43f5e"},
+  b_irr4:{icon:"💥",name:"Formwandler II",color:"#dc2626"}
+};
+window.THEME={BADGES,id:"wortwind",name:"Die Wortwind-Crew",ship:"Wortwind",
   crew:{
     blitz:{name:"Käpt'n Blitz",role:"Motivation",svg:blitz},
     pixel:{name:"Pixel",role:"Hilfe bei Fehlern",svg:pixel},

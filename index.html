@@ -45,6 +45,23 @@ summary{font-weight:700;cursor:pointer;font-size:16px}
 input.t,select.t{width:100%;padding:14px;font-size:16px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin-top:8px}
 #sync{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));background:#1e293b;color:#fff;padding:8px 14px;border-radius:99px;font-size:13px;display:none;z-index:9}
 .hid{display:none}
+header{background:linear-gradient(135deg,#1e3a8a,#6366f1)}
+nav button{font-size:12px;padding:12px 4px}
+.say{display:flex;gap:8px;align-items:flex-end;margin:0 0 12px}
+.say .av{width:62px;height:62px;flex:none}.say .av svg{width:100%;height:100%}
+.bub{background:var(--card);color:var(--tx);border:2.5px solid #1e1b4b;border-radius:16px 16px 16px 4px;padding:8px 11px;font-size:14px;font-weight:600}
+.fb .say{margin:0 0 8px}.fb .bub{font-size:13px}
+.adv-hero{background:linear-gradient(180deg,#1e3a8a 0%,#6366f1 65%,#f9a8d4 100%);border-radius:20px;padding:14px 12px 0;text-align:center;color:#fff;margin-bottom:14px;overflow:hidden}
+.adv-hero h2{margin:0;font-size:20px;font-weight:900;color:#fff}
+.adv-hero .shipw{max-width:320px;margin:4px auto -4px;animation:float 4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-6px)}}
+.energy{background:rgba(255,255,255,.2);border-radius:99px;height:12px;margin:8px 4px 4px;overflow:hidden}
+.energy i{display:block;height:100%;background:linear-gradient(90deg,#facc15,#f97316);border-radius:99px}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;font-size:11px;font-weight:700}
+.badges svg{width:100%;max-width:64px}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.8);background:#fff;color:#1e1b4b;border:3px solid #1e1b4b;border-radius:22px;padding:18px;text-align:center;z-index:20;width:min(300px,86vw);opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.toast svg{width:90px}
 .seg{display:flex;gap:6px;margin-top:8px}
 .seg button{flex:1;padding:10px 4px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-weight:600;font-size:13px}
 .seg button.on{background:var(--pr);color:#fff;border-color:var(--pr)}
@@ -59,12 +76,13 @@ select.t{appearance:none;-webkit-appearance:none;font-weight:600;margin-top:0;pa
 </style>
 </head>
 <body>
-<header><div><h1>📚 Vokabeltrainer Englisch</h1><p id="stat">Highlight 8</p></div><button id="logout" class="hid">Abmelden</button></header>
+<header><div><h1>⚡ Wortwind-Crew</h1><p id="stat">Highlight 8</p></div><button id="logout" class="hid">Abmelden</button></header>
 <nav id="nav" class="hid">
-<button data-t="lernen" class="on">Lernen</button><button data-t="ueben">Üben</button><button data-t="woerter">Wörter</button><button data-t="archiv">Archiv</button><button data-t="kaesten">Merkkästen</button>
+<button data-t="start" class="on">⚡ Start</button><button data-t="lernen">Lernen</button><button data-t="ueben">Üben</button><button data-t="woerter">Wörter</button><button data-t="archiv">Archiv</button><button data-t="kaesten">Merkkästen</button>
 </nav>
 <main>
 <section id="login"></section>
+<section id="start" class="hid"></section>
 <section id="lernen" class="hid"></section>
 <section id="ueben" class="hid"></section>
 <section id="woerter" class="hid"></section>
@@ -72,6 +90,8 @@ select.t{appearance:none;-webkit-appearance:none;font-weight:600;margin-top:0;pa
 <section id="kaesten" class="hid"></section>
 </main>
 <div id="sync"></div>
+<div id="toast" class="toast"></div>
+<script src="theme-wortwind.js"></script>
 <script>
 // ===== Verbindung zu Supabase =====
 const SB_URL="https://reithvwizkydktydpwni.supabase.co";
@@ -84,7 +104,7 @@ async function rpc(fn,body){
 }
 
 // ===== Daten & Lernstand =====
-let ME=null, V=[], BOX=[], P={}, SETS=[];
+let ME=null, V=[], BOX=[], P={}, SETS=[], BADGES=new Set();
 const dirty=new Set(); let saveT=null;
 const st=id=>P[id]||(P[id]={active:false,status:"new",streak:0,level:0,due:null});
 // Stufen: nach Erreichen von Stufe n kommt das Wort nach INT[n] Tagen wieder; richtig auf Stufe 5 = gemeistert
@@ -164,10 +184,10 @@ async function login(name,pin){
   try{
     const d=await rpc("vt_load",{p_name:name,p_pin:pin});
     ME={name,pin};storeLogin(ME);
-    V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];
+    V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];BADGES=new Set(d.badges||[]);
     (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak,level:x.level||0,due:x.due||null}});
     $("login").classList.add("hid");$("nav").classList.remove("hid");$("logout").classList.remove("hid");
-    buildBoxes();show("lernen");
+    buildBoxes();show("start");
   }catch(e){
     storeLogin(null);
     renderLogin(/PIN/.test(e.message)?"Name oder PIN falsch.":"Keine Verbindung. Bitte Internet prüfen.");
@@ -176,14 +196,61 @@ async function login(name,pin){
 $("logout").onclick=async()=>{await flush();storeLogin(null);location.reload()};
 
 // ===== Tabs =====
-const TABS=["lernen","ueben","woerter","archiv","kaesten"];
+const TABS=["start","lernen","ueben","woerter","archiv","kaesten"];
 function show(t){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   TABS.forEach(x=>$(x).classList.toggle("hid",x!==t));
-  ({lernen:renderCards,ueben:renderQuizStart,woerter:renderWords,archiv:renderArchive,kaesten:header})[t]();
+  ({start:renderStart,lernen:renderCards,ueben:renderQuizStart,woerter:renderWords,archiv:renderArchive,kaesten:header})[t]();
   window.scrollTo(0,0);
 }
 $("nav").onclick=e=>{const t=e.target.dataset.t;if(t)show(t)};
+
+// ===== Abenteuer (Thema) =====
+const TH=window.THEME||null;
+function say(who,text,face){
+  const d=el("div","say");if(!TH)return el("div","mu",text);
+  const a=el("div","av");a.innerHTML=TH.crew[who].svg(face);d.append(a,el("div","bub",text));return d;
+}
+const line=(who,k)=>TH?pickOne(TH.LINES[who][k]):"";
+function islandProgress(){
+  // pro Insel: Durchschnitt der Stufen (gemeistert = voll) über alle Wörter der Unit
+  return TH.ISLANDS.map(isl=>{const ws=V.filter(w=>w.unit===isl.unit);if(!ws.length)return 0;
+    return ws.reduce((s,w)=>{const x=st(w.id);return s+(x.status==="done"?1:(x.level||0)/5)},0)/ws.length});
+}
+function renderStart(){
+  header();const box=$("start");box.innerHTML="";if(!TH)return;
+  const pr=islandProgress(),full=pr.filter(p=>p>=1).length;
+  const stage=full>=4?3:full>=1?2:1;
+  let at=pr.findIndex(p=>p<1);if(at<0)at=pr.length-1;
+  const total=pr.reduce((a,b)=>a+b,0)/pr.length;
+  const due=V.filter(w=>open(w)&&isDue(w)).length,act=V.filter(open).length;
+  const h=el("div","adv-hero");
+  h.append(el("h2",null,"⚡ Luftschiff Wortwind"),el("div",null,`Wort-Energie: ${Math.round(total*100)} %`));
+  const en=el("div","energy"),bar=el("i");bar.style.width=Math.max(2,total*100)+"%";en.append(bar);h.append(en);
+  const sw=el("div","shipw");sw.innerHTML=TH.shipSvg(stage);h.append(sw);box.append(h);
+  const greet=!act?"Ahoi! Such dir im Tab „Wörter“ ein paar Wörter aus – dann geht’s los! ⚡":
+    due?`${line("blitz","start")} Heute dran: ${due} ${due===1?"Wort":"Wörter"}.`:"Für heute ist alles erledigt! Die Turbine ruht sich aus. 😎";
+  box.append(say("blitz",greet));
+  if(due){const g=el("button","btn",`🎯 Quiz starten (${due})`);g.onclick=()=>show("ueben");box.append(g)}
+  else if(act){const g=el("button","btn g","✍️ Schreibtraining – ganz ohne Druck");g.onclick=()=>show("ueben");box.append(g)}
+  else{const g=el("button","btn","Wörter auswählen");g.onclick=()=>show("woerter");box.append(g)}
+  box.append(el("h2",null,"🗺️ Inselkarte"));
+  const m=el("div","box");m.style.padding="8px";m.innerHTML=TH.mapSvg(pr,at,stage);m.firstElementChild.style.width="100%";box.append(m);
+  box.append(el("h2",null,"🏅 Spezialkräfte"));
+  const bb=el("div","box");bb.append(say("syntax",BADGES.size?`${BADGES.size} von ${BOX.length} Kräften gesammelt. Ahem – beachtlich!`:"Mach eine Übung in den Merkkästen – dann verleihe ich dir deine erste Kraft!"));
+  const g=el("div","badges");
+  BOX.forEach(x=>{const b=TH.BADGES[x.id];if(!b)return;const has=BADGES.has(x.id);
+    const d=el("div");d.innerHTML=TH.badge(b.icon,b.color,!has);d.append(el("div",null,has?b.name:"???"));g.append(d)});
+  bb.append(g);box.append(bb);
+}
+let toastT=null;
+function toast(html){const t=$("toast");t.innerHTML=html;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),2600)}
+async function earnBadge(boxId){
+  if(!TH||!TH.BADGES[boxId]||BADGES.has(boxId))return;
+  BADGES.add(boxId);const b=TH.BADGES[boxId];
+  toast(TH.badge(b.icon,b.color)+`<div style="font-weight:900;font-size:18px;margin-top:6px">Neue Kraft: ${b.name}!</div><div style="font-size:13px">Doc Syntax ist beeindruckt. 🦜</div>`);
+  try{await rpc("vt_badge_add",{p_name:ME.name,p_pin:ME.pin,p_badge:boxId})}catch(e){}
+}
 
 // ===== Lernen (Karteikarten) =====
 let ci=0;
@@ -223,6 +290,7 @@ function renderQuizStart(){
   if(!q.length){b.append(el("p",null,curSet?"In diesem Lernset ist gerade nichts offen – alles gemeistert! 🎉":"Noch nichts zum Üben freigegeben."),el("p","mu","Im Tab „Wörter“ Vokabeln auswählen und freigeben."));box.append(b);return}
   const due=q.filter(isDue);
   let next="";if(!due.length){const n=q.map(w=>st(w.id).due).filter(Boolean).sort()[0];if(n)next=" Die nächsten Wörter kommen "+whenTxt(n)+" dran."}
+  box.append(say("blitz",due.length?line("blitz","start"):"Heute ist nichts mehr fällig – Schreibtraining geht aber immer! ✍️"));
   b.append(el("h3",null,"🎯 Quiz"),el("p",null,due.length?`Heute dran: ${due.length} von ${q.length} Wörtern`:"Für heute ist alles erledigt! 🎉"+next));
   const seg=el("div","seg");
   [["de2en","Deutsch → Englisch"],["en2de","Englisch → Deutsch"],["mix","Gemischt"]].forEach(([k,t])=>{
@@ -239,12 +307,12 @@ function renderQuizStart(){
 }
 
 // ===== Üben: Quiz (3 Antworten) =====
-let pool=[],qi=0,pts=0,cur=null;
+let pool=[],qi=0,pts=0,cur=null,qStreak=0;
 const OK_Q=["Richtig! 🎉","Super! ⭐","Genau! 👏","Stark! 💪"];
 const NO_Q=["Nicht ganz – kein Problem! 🙂","Knapp daneben – das merkst du dir jetzt. 💡","Macht nichts, dafür üben wir ja! 🙂"];
 function nextQ(){
   const box=$("ueben");
-  if(qi>=pool.length){box.innerHTML="";const b=el("div","box");b.append(el("h3",null,`Fertig! ${pts} von ${pool.length} richtig 🎉`));
+  if(qi>=pool.length){box.innerHTML="";const b=el("div","box");b.append(say("blitz",line("blitz","done")),el("h3",null,`Fertig! ${pts} von ${pool.length} richtig 🎉`));qStreak=0;
     const s=el("button","btn","Nochmal");s.onclick=renderQuizStart;b.append(s);box.append(b);header();return}
   const w=pool[qi];const t=dir==="mix"?(Math.random()<.5?"de2en":"en2de"):dir;
   cur={w,t,done:false};drawQ();
@@ -277,7 +345,10 @@ function answer(ok,fb,b){
   }else{x.level=Math.max(x.level-1,0);x.due=today();info="Kommt heute nochmal – dann sitzt es. 🙂"}
   touch(w.id);header();
   fb.className="fb "+(ok?"ok":"no");
-  fb.textContent=pickOne(ok?OK_Q:NO_Q)+" "+`${w.en} = ${w.de}`;
+  qStreak=ok?qStreak+1:0;
+  if(!ok&&TH)fb.append(say("pixel",line("pixel","oops"),"calm"));
+  else if(ok&&TH&&qStreak%3===0)fb.append(say("blitz",line("blitz","streak")));
+  fb.append(el("div",null,(ok?pickOne(OK_Q)+" ":TH?"":pickOne(NO_Q)+" ")+`${w.en} = ${w.de}`));
   fb.append(el("div","mu",info));
   const n=el("button","btn","Weiter");n.onclick=()=>{qi++;nextQ()};b.append(n);
 }
@@ -343,7 +414,7 @@ function drawW(intro){
       f.append(el("div","kind",pickOne(W_OK)+(W_STREAK[wStreak]?" "+W_STREAK[wStreak]:"")),el("div",null,`${clean(w.en)} = ${w.de}`));
     }else{
       wStreak=0;wTricky.add(w.id);
-      f.append(el("div","kind",pickOne(res==="near"?W_NEAR:res==="skip"?W_SKIP:W_NO)));
+      f.append(TH?say("pixel",pickOne(res==="near"?W_NEAR:res==="skip"?W_SKIP:W_NO),res==="skip"?"think":"calm"):el("div","kind",pickOne(res==="near"?W_NEAR:res==="skip"?W_SKIP:W_NO)));
       const ans=el("div","ans");ans.append(res==="near"||res==="no"?markDiff(clean(w.en),typed):clean(w.en));f.append(ans);
       if(typed&&res!=="skip")f.append(el("div","mu","Du hast geschrieben: "+typed));
       if(w.forms)f.append(el("div","mu","Formen: "+w.forms));
@@ -378,6 +449,7 @@ function groups(list){const g=new Map();list.forEach(w=>{const k=secName(w);if(!
 function renderWords(){
   header();const box=$("woerter");box.innerHTML="";
   // Lernsets
+  box.append(say("rio",line("rio","plan")));
   const sb=el("div","box");sb.append(el("h3",null,"📚 Lernsets"));
   if(!SETS.length)sb.append(el("p","mu","Noch keine Lernsets. Testwörter unten ankreuzen und auf „Als Lernset speichern“ tippen."));
   SETS.forEach(s=>{
@@ -472,6 +544,7 @@ function renderArchive(){
 // ===== Merkkästen =====
 function buildBoxes(){
   const box=$("kaesten");box.innerHTML="";
+  box.append(say("syntax",line("syntax","intro")+" Für jede Übung gibt’s eine Spezialkraft!"));
   box.append(el("p","mu","Die blauen Kästen aus dem Buch. Bei ✏️ gibt es eine Übung dazu."));
   let lastUnit=null;
   BOX.forEach(x=>{
@@ -486,7 +559,7 @@ function buildBoxes(){
     drills.forEach(dr=>{
       const area=el("div");
       const bt=el("button","btn",`✏️ ${dr.title||"Üben"}`);
-      bt.onclick=()=>{bt.remove();area.innerHTML="";DRILL[dr.type](area,dr,()=>{area.innerHTML="";area.append(bt)})};
+      bt.onclick=()=>{bt.remove();area.innerHTML="";curBox=x.id;DRILL[dr.type](area,dr,()=>{area.innerHTML="";area.append(bt)})};
       area.append(bt);d.append(area);
     });
     box.append(d);
@@ -494,7 +567,9 @@ function buildBoxes(){
 }
 const D_OK=["Richtig! 🎉","Super! ⭐","Genau! 👏","Stark! 💪","Sitzt! ✅"];
 const D_NO=["Nicht ganz – kein Problem! 🙂","Knapp daneben – jetzt weißt du's. 💡","Macht nichts, dafür üben wir ja! 🙂"];
+let curBox=null;
 function doneBox(area,msg,again,close){
+  if(curBox)earnBadge(curBox);
   const b=el("div","fb ok");b.append(el("div","kind",msg));area.append(b);
   const r=el("div","row"),n=el("button","btn","Nochmal"),z=el("button","btn g","Fertig");
   n.onclick=again;z.onclick=close;r.append(n,z);area.append(r);
