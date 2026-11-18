@@ -141,6 +141,11 @@ const pickOne=a=>a[Math.floor(Math.random()*a.length)];
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}}
 function lsSet(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
 function speak(t){if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(t));u.lang="en-GB";speechSynthesis.speak(u)}}
+// Deutsch vorlesen: Buch-Abkürzungen so umschreiben, dass die Stimme sie sauber spricht
+function speakDe(t){if(!("speechSynthesis"in window))return;
+  const s=t.replace(/(\p{L}+)\/in\b/gu,"$1 oder $1in").replace(/\bz\.\s?B\./g,"zum Beispiel").replace(/\bjn\./g,"jemanden").replace(/\bjm\./g,"jemandem")
+    .replace(/\.\.\.|…/g," ").replace(/\s*\/\s*/g,", ").replace(/;/g,",");
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(s);u.lang="de-DE";speechSynthesis.speak(u)}
 
 // ===== Lernsets =====
 let curSet=lsGet("vt_set",null);
@@ -272,9 +277,9 @@ function renderCards(){
   b.append(el("div"),m2,el("div","mu","Tippen zum Zurückdrehen"));
   si.append(f,b);sc.append(si);sc.onclick=()=>si.classList.toggle("f");
   box.append(top,sc);
-  const sp=el("button","btn g","🔊 Anhören");
-  sp.onclick=()=>speak(w.en);
-  box.append(sp);
+  const sr=el("div","row"),sp=el("button","btn g","🔊 Englisch"),sd=el("button","btn g","🔊 Deutsch");
+  sp.onclick=e=>{e.stopPropagation();speak(w.en)};sd.onclick=e=>{e.stopPropagation();speakDe(w.de)};
+  sr.append(sp,sd);box.append(sr);
   const r=el("div","row"),p=el("button","btn g","← Zurück"),n=el("button","btn","Weiter →");
   p.onclick=()=>{ci=(ci-1+deck.length)%deck.length;renderCards()};
   n.onclick=()=>{ci=(ci+1)%deck.length;renderCards()};
