@@ -24,6 +24,8 @@ main{max-width:640px;margin:0 auto;padding:16px}
 .row{display:flex;gap:8px}
 .mu{color:var(--mu);font-size:13px}
 .sc{perspective:1000px;height:300px;margin-bottom:6px}
+.spk{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:1px solid var(--bd);background:var(--pl);font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.bk .spk{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.3)}
 .si{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
 .si.f{transform:rotateY(180deg)}
 .fc{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;text-align:center;border:1px solid var(--bd);background:var(--card);overflow:auto}
@@ -275,11 +277,13 @@ function renderCards(){
   if(w.ex)m2.append(el("div","ex",w.ex));
   if(w.box){const bx=BOX.find(z=>z.id===w.box);if(bx){const k=el("div","mu","📘 Merkkasten: "+bx.title);k.style.cssText="margin-top:10px;color:#c7d2fe";m2.append(k)}}
   b.append(el("div"),m2,el("div","mu","Tippen zum Zurückdrehen"));
-  si.append(f,b);sc.append(si);sc.onclick=()=>si.classList.toggle("f");
+  // Lautsprecher in der Karte: vorne Englisch, hinten Deutsch – nur die sichtbare Seite spricht
+  const sp=el("button","spk","🔊"),sd=el("button","spk","🔊");sp.setAttribute("aria-label","Vorlesen");sd.setAttribute("aria-label","Vorlesen");
+  sp.onclick=e=>{e.stopPropagation();if(!si.classList.contains("f"))speak(w.en);else si.classList.toggle("f")};
+  sd.onclick=e=>{e.stopPropagation();if(si.classList.contains("f"))speakDe(w.de);else si.classList.toggle("f")};
+  f.append(sp);b.append(sd);
+  si.append(f,b);sc.append(si);sc.onclick=()=>{if("speechSynthesis"in window)speechSynthesis.cancel();si.classList.toggle("f")};
   box.append(top,sc);
-  const sr=el("div","row"),sp=el("button","btn g","🔊 Englisch"),sd=el("button","btn g","🔊 Deutsch");
-  sp.onclick=e=>{e.stopPropagation();speak(w.en)};sd.onclick=e=>{e.stopPropagation();speakDe(w.de)};
-  sr.append(sp,sd);box.append(sr);
   const r=el("div","row"),p=el("button","btn g","← Zurück"),n=el("button","btn","Weiter →");
   p.onclick=()=>{ci=(ci-1+deck.length)%deck.length;renderCards()};
   n.onclick=()=>{ci=(ci+1)%deck.length;renderCards()};
