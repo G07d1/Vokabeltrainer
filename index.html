@@ -47,6 +47,10 @@ summary{font-weight:700;cursor:pointer;font-size:16px}
 input.t,select.t{width:100%;padding:14px;font-size:16px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin-top:8px}
 #sync{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));background:#1e293b;color:#fff;padding:8px 14px;border-radius:99px;font-size:13px;display:none;z-index:9}
 .hid{display:none}
+.pad{position:relative;margin-top:10px}
+.pad canvas{display:block;width:100%;height:190px;border-radius:14px;border:2px solid var(--bd);background:#fffdf5;touch-action:none}
+@media(min-width:700px){.pad canvas{height:250px}}
+.pad .clr{position:absolute;top:8px;right:8px;border:1px solid #e2e8f0;background:#fff;color:#1e1b4b;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700}
 header{background:linear-gradient(135deg,#1e3a8a,#6366f1)}
 nav button{font-size:12px;padding:12px 4px}
 .say{display:flex;gap:8px;align-items:flex-end;margin:0 0 12px}
@@ -310,8 +314,10 @@ function renderQuizStart(){
   b.append(el("p","mu","Richtig = eine Stufe höher ●○○○○, Fehler = eine Stufe zurück. Richtig auf Stufe 5 = gemeistert. Bei „Alle üben“ zählen Wörter, die heute nicht dran sind, nur als Übung."));
   box.append(b);
   const w=el("div","box");
-  w.append(el("h3",null,"✍️ Schreibtraining"),el("p","mu","Du siehst das deutsche Wort und schreibst das englische. Zählt nicht fürs „Gemeistert“ – hier darfst du in Ruhe üben."));
-  const ws=el("button","btn","Schreibtraining starten");ws.onclick=()=>startWrite(q);
+  w.append(el("h3",null,"✍️ Schreibtraining"),el("p","mu","Du siehst das deutsche Wort und schreibst das englische – tippen oder mit dem Stift wie im Heft. Zählt nicht fürs „Gemeistert“ – hier darfst du in Ruhe üben."));
+  const wr=el("div","row"),wk=el("button","btn","⌨️ Tippen"),wp=el("button","btn","✏️ Mit Stift");
+  wk.onclick=()=>{wMode="type";lsSet("vt_wmode","type");startWrite(q)};wp.onclick=()=>{wMode="pen";lsSet("vt_wmode","pen");startWrite(q)};
+  wr.append(wk,wp);const ws=wr;
   w.append(ws);box.append(w);
 }
 
@@ -399,10 +405,12 @@ function markDiff(correct,typed){
   return frag;
 }
 let wPool=[],wi=0,wStreak=0,wFirst=new Set(),wTricky=new Set(),wRetry=new Set();
+let wMode=lsGet("vt_wmode","type");
 function startWrite(q){wPool=shuf(q);wi=0;wStreak=0;wFirst=new Set();wTricky=new Set();wRetry=new Set();drawW(pickOne(W_START))}
 function drawW(intro){
   const box=$("ueben");box.innerHTML="";
   if(wi>=wPool.length)return endW();
+  if(wMode==="pen")return drawPen(intro);
   const w=wPool[wi],b=el("div","box");
   b.append(el("div","mu",`✍️ Wort ${wi+1}/${wPool.length} · ${secName(w)}`+(wRetry.has(w.id)?" · zweiter Versuch":"")));
   if(intro){const i=el("p","kind",intro);b.append(i)}
@@ -438,6 +446,51 @@ function drawW(intro){
   chk.onclick=()=>finish(null);skip.onclick=()=>finish("skip");
   inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();finish(null)}};
   inp.focus();
+}
+// ===== Schreibtraining mit Stift: auf Linien schreiben, auflösen, selbst kontrollieren =====
+function makePad(){
+  const wrap=el("div","pad"),cv=document.createElement("canvas"),clr=el("button","clr","🧽 Löschen");
+  wrap.append(cv,clr);let ctx,drawing=false,penSeen=false,last=null;
+  const setup=()=>{const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;
+    cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);ctx=cv.getContext("2d");ctx.scale(d,d);
+    // Linien wie im Schulheft
+    ctx.strokeStyle="#cbd5e1";ctx.lineWidth=1;
+    [0.38,0.62,0.86].forEach((y,i)=>{ctx.beginPath();ctx.setLineDash(i===1?[]:[6,6]);ctx.moveTo(10,r.height*y);ctx.lineTo(r.width-10,r.height*y);ctx.stroke()});
+    ctx.setLineDash([]);ctx.strokeStyle="#1e1b4b";ctx.lineCap="round";ctx.lineJoin="round"};
+  const pt=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,p:e.pressure||.5}};
+  cv.addEventListener("pointerdown",e=>{if(e.pointerType==="pen")penSeen=true;if(penSeen&&e.pointerType==="touch")return; // Handballen ignorieren
+    drawing=true;last=pt(e);cv.setPointerCapture(e.pointerId);e.preventDefault()});
+  cv.addEventListener("pointermove",e=>{if(!drawing)return;const q=pt(e);ctx.lineWidth=e.pointerType==="pen"?1.5+q.p*2.5:3;
+    ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(q.x,q.y);ctx.stroke();last=q;e.preventDefault()});
+  const stop=()=>{drawing=false};cv.addEventListener("pointerup",stop);cv.addEventListener("pointercancel",stop);
+  clr.onclick=()=>setup();
+  return {el:wrap,init:()=>requestAnimationFrame(setup),lock:()=>{cv.style.pointerEvents="none";clr.remove()}};
+}
+function drawPen(intro){
+  const box=$("ueben"),w=wPool[wi],b=el("div","box");
+  b.append(el("div","mu",`✏️ Wort ${wi+1}/${wPool.length} · ${secName(w)}`+(wRetry.has(w.id)?" · zweiter Versuch":"")));
+  if(intro)b.append(el("p","kind",intro));
+  b.append(el("div","mu","Schreib auf Englisch:"),el("div","prompt",w.de));
+  const pad=makePad();b.append(pad.el);
+  const show=el("button","btn","👀 Auflösen"),fb=el("div");b.append(show,fb);box.append(b);pad.init();
+  show.onclick=()=>{
+    show.remove();pad.lock();
+    const sol=el("div","fb");sol.style.background="var(--pl)";
+    sol.append(el("div","mu","So schreibt man es:"),el("div","ans",clean(w.en)));
+    if(w.forms)sol.append(el("div","mu","Formen: "+w.forms));
+    const h=el("button","btn g","🔊 Anhören");h.onclick=()=>speak(w.en);
+    const q=el("p","kind","Vergleich mal genau – Buchstabe für Buchstabe. Hattest du es richtig?");q.style.marginTop="12px";
+    const r=el("div","row"),no=el("button","btn g","🔁 Noch nicht"),yes=el("button","btn","✅ Richtig");
+    r.append(no,yes);fb.append(sol,h,q,r);
+    const next=()=>{const nx=el("button","btn","Weiter");nx.onclick=()=>{wi++;drawW()};fb.append(nx);nx.scrollIntoView({behavior:"smooth",block:"center"})};
+    yes.onclick=()=>{q.remove();r.remove();wStreak++;if(!wRetry.has(w.id))wFirst.add(w.id);
+      fb.append(el("div","fb ok",pickOne(W_OK)+(W_STREAK[wStreak]?" "+W_STREAK[wStreak]:"")));next()};
+    no.onclick=()=>{q.remove();r.remove();wStreak=0;wTricky.add(w.id);
+      const f=el("div","fb no");f.append(TH?say("pixel",pickOne(W_NO),"calm"):el("div","kind",pickOne(W_NO)));
+      if(w.ex){const e=el("div","mu","📖 "+w.ex);e.style.marginTop="6px";f.append(e)}
+      if(!wRetry.has(w.id)){wRetry.add(w.id);wPool.push(w);f.append(el("div","mu","Das Wort kommt am Ende nochmal – dann klappt's bestimmt. 😉"))}
+      fb.append(f);next()};
+  };
 }
 function endW(){
   const box=$("ueben");box.innerHTML="";const b=el("div","box");
