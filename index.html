@@ -85,6 +85,12 @@ nav button.hm{flex:0 0 44px;font-size:18px}
 .chip{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;padding:10px 12px;font-size:16px;font-weight:600}
 .chips.built{border:2px dashed var(--bd);border-radius:12px;padding:8px}.chips.built .chip{background:var(--okb)}
 .ex-t{font-weight:700;margin:12px 0 0}
+.exrow{display:block;width:100%;text-align:left;margin-top:8px;padding:12px 14px;border:1px solid var(--bd);border-left:5px solid var(--pr);border-radius:12px;background:var(--card);color:var(--tx)}
+.exrow b{display:block;font-size:16px}.exrow small{display:block;color:var(--mu);font-size:12px;margin-top:2px}
+.exrow small:empty{display:none}
+.run{border:2px solid var(--pr);border-radius:14px;padding:0 12px 12px;margin-top:8px;overflow:hidden;scroll-margin-top:64px}
+.run-h{display:flex;align-items:center;gap:8px;background:var(--pr);color:#fff;font-weight:700;font-size:15px;margin:0 -12px 4px;padding:8px 8px 8px 12px}
+.run-h span{flex:1}.run-x{border:0;background:rgba(255,255,255,.22);color:#fff;border-radius:8px;width:34px;height:34px;font-size:16px;font-weight:800}
 .jump{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));width:54px;height:54px;border-radius:50%;border:0;background:var(--pr);color:#fff;font-size:24px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:8}
 .jump .bd{position:absolute;top:-6px;right:-8px;background:#f59e0b;color:#1e293b;border-radius:99px;font-size:12px;padding:2px 7px;font-weight:800}
 </style>
@@ -830,10 +836,21 @@ function renderEx(){
   let last=null,d=null;
   EXS.forEach(x=>{
     if(x.area!==last){last=x.area;d=document.createElement("details");d.className="box";d.append(el("summary",null,x.area));box.append(d)}
-    d.append(el("div","ex-t",x.title));
+    // Seitenangabe aus dem Titel, z. B. „WB S. 4, Nr. 3“ – nur zeigen, wenn die Übung selbst keine hat
+    const src=(x.title.match(/\(([^()]*S\.[^()]*)\)\s*$/)||[])[1]||"";
     (x.data.drills||[]).forEach(dr=>{
-      const area=el("div"),bt=el("button","btn",`✏️ ${dr.title||"Üben"}`);
-      bt.onclick=()=>{bt.remove();area.innerHTML="";curBox=null;DRILL[dr.type](area,dr,()=>{area.innerHTML="";area.append(bt)})};
+      const title=dr.title||"Üben",m=title.match(/^(.*?)\s*\(([^()]*S\.[^()]*)\)\s*$/);
+      const area=el("div"),bt=el("button","exrow");
+      bt.append(el("b",null,m?m[1]:title),el("small",null,m?m[2]:src));
+      bt.onclick=()=>{
+        // laufende Übung als eigene Karte mit Titel und ✕
+        bt.remove();area.innerHTML="";curBox=null;area.className="run";
+        const hd=el("div","run-h"),xb=el("button","run-x","✕"),inner=el("div");
+        const close=()=>{if(lsnOn){speechSynthesis.cancel();lsnSet(false)}area.className="";area.innerHTML="";area.append(bt)};
+        xb.onclick=close;hd.append(el("span",null,m?m[1]:title),xb);area.append(hd,inner);
+        DRILL[dr.type](inner,dr,close);
+        area.scrollIntoView({block:"start",behavior:"smooth"});
+      };
       area.append(bt);d.append(area);
     });
   });
