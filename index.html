@@ -643,9 +643,13 @@ function buildBoxes(){
 const D_OK=["Richtig! 🎉","Super! ⭐","Genau! 👏","Stark! 💪","Sitzt! ✅"];
 const D_NO=["Nicht ganz – kein Problem! 🙂","Knapp daneben – jetzt weißt du's. 💡","Macht nichts, dafür üben wir ja! 🙂"];
 let curBox=null;
+// Crew in den Übungen: Blitz jubelt bei 3 richtig am Stück, Pixel tröstet bei Fehlern ohne Regel-Tipp
+let dStreak=0;
+function crewOk(fb){if(++dStreak%3===0&&TH)fb.append(say("blitz",line("blitz","streak")))}
+function crewNo(f,hint){dStreak=0;if(hint)f.append(say("syntax",hint));else if(TH)f.append(say("pixel",line("pixel","oops"),"calm"))}
 function doneBox(area,msg,again,close){
-  if(curBox)earnBadge(curBox);
-  const b=el("div","fb ok");b.append(el("div","kind",msg));area.append(b);
+  if(curBox)earnBadge(curBox);dStreak=0;
+  const b=el("div","fb ok");if(TH)b.append(say("blitz",line("blitz","done")));b.append(el("div","kind",msg));area.append(b);
   const r=el("div","row"),n=el("button","btn","Nochmal"),z=el("button","btn g","Fertig");
   n.onclick=again;z.onclick=close;r.append(n,z);area.append(r);
 }
@@ -668,9 +672,10 @@ const DRILL={
         if(bt.disabled)return;
         if(o===ans){if(!tried)first++;area.querySelectorAll(".opt").forEach(x=>x.disabled=true);bt.classList.add("ok");
           fb.innerHTML="";fb.append(el("div","fb ok",pickOne(D_OK)+" "+(full||sen.replace("___",ans))));
+          if(!tried)crewOk(fb);
           const n=el("button","btn","Weiter");n.onclick=()=>{i++;step()};fb.append(n);n.focus();
         }else{tried=true;bt.classList.add("no");bt.disabled=true;fb.innerHTML="";const f=el("div","fb no");
-          if(hint)f.append(say("syntax",hint,"think"));f.append(el("div",null,pickOne(D_NO)+" Probier's nochmal."));fb.append(f)}
+          crewNo(f,hint);f.append(el("div",null,pickOne(D_NO)+" Probier's nochmal."));fb.append(f)}
       };area.append(bt)});
       if(hint)area.append(helpBtn(hint));
       area.append(fb);
@@ -758,8 +763,8 @@ const DRILL={
       const check=()=>{
         const ok=[...built.children].map(x=>x.textContent).join(" ")===right.join(" ");
         const f=el("div","fb "+(ok?"ok":"no"));
-        if(ok)f.append(el("div","kind",pickOne(D_OK)+" "+full(right)));
-        else{if(dr.hint)f.append(say("syntax",dr.hint));f.append(el("div","kind",pickOne(D_NO)+" So heißt die Frage:"),el("div","ans",full(right)))}
+        if(ok){f.append(el("div","kind",pickOne(D_OK)+" "+full(right)));crewOk(f)}
+        else{crewNo(f,dr.hint);f.append(el("div","kind",pickOne(D_NO)+" So heißt die Frage:"),el("div","ans",full(right)))}
         const nx=el("button","btn","Weiter");nx.onclick=()=>{i++;step()};fb.append(f,nx);
       };
       area.append(built,endEl,pool);
@@ -779,14 +784,14 @@ function renderHome(){
   header();const h=$("home");h.innerHTML="";
   h.append(say("blitz",ME?`Hey ${ME.name}! Was machen wir heute?`:"Was machen wir heute?"));
   const t1=el("button","tile");t1.innerHTML="<b>📚 Vokabeln</b><span>Lernen, üben, Wörter, Merkkästen</span>";t1.onclick=()=>show("start");
-  const t2=el("button","tile");t2.innerHTML="<b>📝 Exercises</b><span>Aufgaben aus dem Workbook, Unit 1</span>";t2.onclick=()=>show("ex");
+  const t2=el("button","tile");t2.innerHTML="<b>📝 Exercises</b><span>Aufgaben aus Workbook und Schulbuch, Unit 1</span>";t2.onclick=()=>show("ex");
   h.append(t1,t2);
 }
 
 // ===== Exercises (Workbook) =====
 function renderEx(){
   const box=$("ex");box.innerHTML="";curBox=null;
-  box.append(say("syntax","Hier sind die Aufgaben aus deinem Workbook. Such dir ein Thema aus – bei 💡 helfe ich dir!"));
+  box.append(say("syntax","Hier sind die Aufgaben aus Workbook und Schulbuch. Such dir ein Thema aus – bei 💡 helfe ich dir!"));
   if(!EXS.length){box.append(el("p","mu","Noch keine Aufgaben da."));return}
   // Probe-Check: gemischte Sätze aus allen Themen
   const pc=el("div","box");pc.append(el("h3",null,"🎯 Probe-Check"),el("p","mu","15 gemischte Aufgaben aus allen Themen."));
