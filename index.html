@@ -77,6 +77,14 @@ select.t{appearance:none;-webkit-appearance:none;font-weight:600;margin-top:0;pa
 .dm{background:#fde68a;color:#1e293b;border-radius:3px;padding:0 1px}
 .kind{font-weight:700;margin-bottom:6px}
 .prompt{font-size:22px;font-weight:800;margin:10px 0 2px}
+nav button.hm{flex:0 0 44px;font-size:18px}
+.tile{display:block;width:100%;text-align:left;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:18px;padding:20px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.tile b{display:block;font-size:22px;margin-bottom:4px}.tile span{color:var(--mu);font-size:14px}
+.rd{white-space:pre-line;font-size:14px;line-height:1.5;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0;max-height:40vh;overflow:auto}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;min-height:48px}
+.chip{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;padding:10px 12px;font-size:16px;font-weight:600}
+.chips.built{border:2px dashed var(--bd);border-radius:12px;padding:8px}.chips.built .chip{background:var(--okb)}
+.ex-t{font-weight:700;margin:12px 0 0}
 .jump{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));width:54px;height:54px;border-radius:50%;border:0;background:var(--pr);color:#fff;font-size:24px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.28);z-index:8}
 .jump .bd{position:absolute;top:-6px;right:-8px;background:#f59e0b;color:#1e293b;border-radius:99px;font-size:12px;padding:2px 7px;font-weight:800}
 </style>
@@ -84,10 +92,12 @@ select.t{appearance:none;-webkit-appearance:none;font-weight:600;margin-top:0;pa
 <body>
 <header><div><h1>⚡ Wortwind-Crew</h1><p id="stat">Highlight 8</p></div><button id="logout" class="hid">Abmelden</button></header>
 <nav id="nav" class="hid">
-<button data-t="start" class="on">⚡ Start</button><button data-t="lernen">Lernen</button><button data-t="ueben">Üben</button><button data-t="woerter">Wörter</button><button data-t="archiv">Archiv</button><button data-t="kaesten">Merkkästen</button>
+<button data-t="home" class="hm">⌂</button><button data-t="start" class="vk on">⚡ Start</button><button data-t="lernen" class="vk">Lernen</button><button data-t="ueben" class="vk">Üben</button><button data-t="woerter" class="vk">Wörter</button><button data-t="archiv" class="vk">Archiv</button><button data-t="kaesten" class="vk">Merkkästen</button><button data-t="ex" class="xk">📝 Exercises</button>
 </nav>
 <main>
 <section id="login"></section>
+<section id="home" class="hid"></section>
+<section id="ex" class="hid"></section>
 <section id="start" class="hid"></section>
 <section id="lernen" class="hid"></section>
 <section id="ueben" class="hid"></section>
@@ -110,7 +120,7 @@ async function rpc(fn,body){
 }
 
 // ===== Daten & Lernstand =====
-let ME=null, V=[], BOX=[], P={}, SETS=[], BADGES=new Set();
+let ME=null, V=[], BOX=[], P={}, SETS=[], BADGES=new Set(), EXS=[];
 const dirty=new Set(); let saveT=null;
 const st=id=>P[id]||(P[id]={active:false,status:"new",streak:0,level:0,due:null});
 // Stufen: nach Erreichen von Stufe n kommt das Wort nach INT[n] Tagen wieder; richtig auf Stufe 5 = gemeistert
@@ -195,10 +205,10 @@ async function login(name,pin){
   try{
     const d=await rpc("vt_load",{p_name:name,p_pin:pin});
     ME={name,pin};storeLogin(ME);
-    V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];BADGES=new Set(d.badges||[]);
+    V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];BADGES=new Set(d.badges||[]);EXS=d.exercises||[];
     (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak,level:x.level||0,due:x.due||null}});
     $("login").classList.add("hid");$("nav").classList.remove("hid");$("logout").classList.remove("hid");
-    buildBoxes();show("start");
+    buildBoxes();show("home");
   }catch(e){
     storeLogin(null);
     renderLogin(/PIN/.test(e.message)?"Name oder PIN falsch.":"Keine Verbindung. Bitte Internet prüfen.");
@@ -207,11 +217,14 @@ async function login(name,pin){
 $("logout").onclick=async()=>{await flush();storeLogin(null);location.reload()};
 
 // ===== Tabs =====
-const TABS=["start","lernen","ueben","woerter","archiv","kaesten"];
+const TABS=["home","ex","start","lernen","ueben","woerter","archiv","kaesten"];
 function show(t){
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  document.querySelectorAll("nav button").forEach(b=>{b.classList.toggle("on",b.dataset.t===t);
+    if(b.classList.contains("vk"))b.classList.toggle("hid",t==="ex");
+    if(b.classList.contains("xk"))b.classList.toggle("hid",t!=="ex")});
+  $("nav").classList.toggle("hid",t==="home");
   TABS.forEach(x=>$(x).classList.toggle("hid",x!==t));
-  ({start:renderStart,lernen:renderCards,ueben:renderQuizStart,woerter:renderWords,archiv:renderArchive,kaesten:header})[t]();
+  ({home:renderHome,ex:renderEx,start:renderStart,lernen:renderCards,ueben:renderQuizStart,woerter:renderWords,archiv:renderArchive,kaesten:header})[t]();
   window.scrollTo(0,0);
 }
 $("nav").onclick=e=>{const t=e.target.dataset.t;if(t)show(t)};
@@ -643,16 +656,23 @@ const DRILL={
     const step=()=>{
       area.innerHTML="";
       if(i>=items.length)return doneBox(area,first===items.length?"Alles richtig – super gemacht! 🏆":"Geschafft! 🎉 Du hast alle Sätze durch.",()=>DRILL.gap(area,dr,close),close);
-      const [sen,ans,full]=items[i];let tried=false;
+      const [sen,ans,full,own,ih]=items[i];let tried=false;
+      const hint=ih||dr.hint;
+      // eigene Antworten pro Satz; großer Wortkasten (>4) → Lösung + 2 andere
+      let opts=Array.isArray(own)?own:dr.options;
+      if(!Array.isArray(own)&&opts.length>4)opts=shuf([ans,...shuf(opts.filter(o=>o!==ans)).slice(0,2)]);
+      if(dr.text){const t=document.createElement("details");t.open=i===0;t.append(el("summary",null,"📄 Text lesen"),el("div","rd",dr.text));area.append(t)}
       area.append(el("div","mu",`${i+1}/${items.length}`),el("div","prompt",sen));
       const fb=el("div");
-      dr.options.forEach(o=>{const bt=el("button","opt",o);bt.onclick=()=>{
+      opts.forEach(o=>{const bt=el("button","opt",o);bt.onclick=()=>{
         if(bt.disabled)return;
         if(o===ans){if(!tried)first++;area.querySelectorAll(".opt").forEach(x=>x.disabled=true);bt.classList.add("ok");
           fb.innerHTML="";fb.append(el("div","fb ok",pickOne(D_OK)+" "+(full||sen.replace("___",ans))));
           const n=el("button","btn","Weiter");n.onclick=()=>{i++;step()};fb.append(n);n.focus();
-        }else{tried=true;bt.classList.add("no");bt.disabled=true;fb.innerHTML="";fb.append(el("div","fb no",pickOne(D_NO)+" Probier's nochmal."))}
+        }else{tried=true;bt.classList.add("no");bt.disabled=true;fb.innerHTML="";const f=el("div","fb no");
+          if(hint)f.append(say("syntax",hint,"think"));f.append(el("div",null,pickOne(D_NO)+" Probier's nochmal."));fb.append(f)}
       };area.append(bt)});
+      if(hint)area.append(helpBtn(hint));
       area.append(fb);
     };step();
   },
@@ -679,14 +699,21 @@ const DRILL={
     area.append(grid,msg);
   },
   // Verbformen eintippen: Grundform sehen, 2. und 3. Form schreiben
-  forms(area,dr,close){
+  forms(area,dr,close,cnt){
+    // lange Listen: erst Anzahl wählen
+    if(!cnt&&dr.items.length>20){area.innerHTML="";area.append(el("p","mu",`Wie viele Verben? (${dr.items.length} insgesamt)`));
+      const r=el("div","row");[10,20,"alle"].forEach(k=>{const b=el("button","btn",String(k));b.onclick=()=>DRILL.forms(area,dr,close,k);r.append(b)});
+      area.append(r);return}
     let pool=shuf(dr.items),i=0,retry=new Set(),tricky=new Set();
+    if(typeof cnt==="number")pool=pool.slice(0,cnt);
     const n=s=>s.toLowerCase().replace(/^\s*\(?to\)?\s+/,"").replace(/\s+/g," ").trim();
+    // "was/were": was, were oder beides gilt
+    const fits=(v,f)=>{const x=n(v).replace(/\s*\/\s*/g,"/");return x===f||f.split("/").includes(x)};
     const step=()=>{
       area.innerHTML="";
       if(i>=pool.length){
         const msg=tricky.size?"Geschafft! 💪 Diese Verben üben wir nochmal: "+[...tricky].join(", "):"Alles beim ersten Versuch richtig – stark! 🏆";
-        return doneBox(area,msg,()=>DRILL.forms(area,dr,close),close);
+        return doneBox(area,msg,()=>DRILL.forms(area,dr,close,cnt),close);
       }
       const [base,f2,f3,de]=pool[i];
       area.append(el("div","mu",`${i+1}/${pool.length}`+(retry.has(base)?" · zweiter Versuch":"")),el("div","prompt",`(to) ${base}`),el("div","mu",de));
@@ -696,7 +723,7 @@ const DRILL={
       area.append(a,b,chk,fb);
       const go=()=>{
         if(chk.disabled)return;chk.disabled=true;a.disabled=b.disabled=true;
-        const ok2=n(a.value)===f2,ok3=n(b.value)===f3;
+        const ok2=fits(a.value,f2),ok3=fits(b.value,f3);
         const f=el("div","fb "+(ok2&&ok3?"ok":"no"));
         if(ok2&&ok3)f.append(el("div","kind",pickOne(D_OK)));
         else{f.append(el("div","kind",(ok2||ok3?"Halb richtig – gut! ":"")+"So geht's:"));tricky.add(base);
@@ -708,10 +735,82 @@ const DRILL={
         fb.append(f,h,nx);setTimeout(()=>nx.focus(),50);
       };
       chk.onclick=go;a.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();b.focus()}};b.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go()}};
+      if(dr.hint)area.append(helpBtn(dr.hint));
       a.focus();
+    };step();
+  },
+  // Wortstellung: Bausteine antippen, bis der Satz steht
+  order(area,dr,close){
+    const items=shuf(dr.items);let i=0;
+    const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+    const step=()=>{
+      area.innerHTML="";
+      if(i>=items.length)return doneBox(area,"Alle Fragen gebaut! 🎉",()=>DRILL.order(area,dr,close),close);
+      const it=items[i];const right=it.a.map(k=>it.c[k]);
+      const full=(ws)=>{const s=cap(ws.join(" "));return /^[?.!]/.test(it.end)?s+it.end:s+" "+it.end};
+      area.append(el("div","mu",`${i+1}/${items.length}`),el("div","mu","Tippe die Bausteine in der richtigen Reihenfolge an."));
+      const built=el("div","chips built"),pool=el("div","chips"),endEl=el("div","mu","… "+it.end),fb=el("div");
+      let got=[];
+      shuf(it.c.map((t,k)=>({t,k}))).forEach(o=>{const c=el("button","chip",o.t);
+        c.onclick=()=>{if(fb.childElementCount)return;
+          if(c.parentNode===pool){built.append(c);got.push(o.t)}else{pool.append(c);got.splice(got.indexOf(o.t),1)}
+          if(got.length===it.c.length)check()};pool.append(c)});
+      const check=()=>{
+        const ok=[...built.children].map(x=>x.textContent).join(" ")===right.join(" ");
+        const f=el("div","fb "+(ok?"ok":"no"));
+        if(ok)f.append(el("div","kind",pickOne(D_OK)+" "+full(right)));
+        else{if(dr.hint)f.append(say("syntax",dr.hint));f.append(el("div","kind",pickOne(D_NO)+" So heißt die Frage:"),el("div","ans",full(right)))}
+        const nx=el("button","btn","Weiter");nx.onclick=()=>{i++;step()};fb.append(f,nx);
+      };
+      area.append(built,endEl,pool);
+      if(dr.hint)area.append(helpBtn(dr.hint));
+      area.append(fb);
     };step();
   }
 };
+// „Ich brauche Hilfe“: Doc Syntax erklärt die Regel
+function helpBtn(hint){
+  const w=el("div"),b=el("button","btn g","💡 Ich brauche Hilfe");
+  b.onclick=()=>{b.remove();w.append(say("syntax",hint))};w.append(b);return w;
+}
+
+// ===== Startseite: Vokabeln oder Exercises =====
+function renderHome(){
+  header();const h=$("home");h.innerHTML="";
+  h.append(say("blitz",ME?`Hey ${ME.name}! Was machen wir heute?`:"Was machen wir heute?"));
+  const t1=el("button","tile");t1.innerHTML="<b>📚 Vokabeln</b><span>Lernen, üben, Wörter, Merkkästen</span>";t1.onclick=()=>show("start");
+  const t2=el("button","tile");t2.innerHTML="<b>📝 Exercises</b><span>Aufgaben aus dem Workbook, Unit 1</span>";t2.onclick=()=>show("ex");
+  h.append(t1,t2);
+}
+
+// ===== Exercises (Workbook) =====
+function renderEx(){
+  const box=$("ex");box.innerHTML="";curBox=null;
+  box.append(say("syntax","Hier sind die Aufgaben aus deinem Workbook. Such dir ein Thema aus – bei 💡 helfe ich dir!"));
+  if(!EXS.length){box.append(el("p","mu","Noch keine Aufgaben da."));return}
+  // Probe-Check: gemischte Sätze aus allen Themen
+  const pc=el("div","box");pc.append(el("h3",null,"🎯 Probe-Check"),el("p","mu","15 gemischte Aufgaben aus allen Themen."));
+  const pa=el("div"),pb=el("button","btn","Los geht's");
+  const reset=()=>{pa.innerHTML="";pa.append(pb)};
+  pb.onclick=()=>{const all=[];
+    EXS.forEach(x=>(x.data.drills||[]).forEach(dr=>{if(dr.type!=="gap"||dr.text)return;
+      dr.items.forEach(it=>{let o=Array.isArray(it[3])?it[3]:dr.options;
+        if(!Array.isArray(it[3])&&o.length>4)o=shuf([it[1],...shuf(o.filter(v=>v!==it[1])).slice(0,2)]);
+        all.push([it[0],it[1],it[2],o,it[4]||dr.hint])})}));
+    pa.innerHTML="";DRILL.gap(pa,{items:shuf(all).slice(0,15)},reset)};
+  reset();pc.append(pa);box.append(pc);
+  let last=null,d=null;
+  EXS.forEach(x=>{
+    if(x.area!==last){last=x.area;d=document.createElement("details");d.className="box";d.append(el("summary",null,x.area));box.append(d)}
+    d.append(el("div","ex-t",x.title));
+    (x.data.drills||[]).forEach(dr=>{
+      const area=el("div"),bt=el("button","btn",`✏️ ${dr.title||"Üben"}`);
+      bt.onclick=()=>{bt.remove();area.innerHTML="";curBox=null;DRILL[dr.type](area,dr,()=>{area.innerHTML="";area.append(bt)})};
+      area.append(bt);d.append(area);
+    });
+  });
+  box.append(el("p","mu","🎧 Hörübungen bitte in der Cornelsen-App machen."));
+}
 
 // ===== Start =====
 const saved=loadSaved();
