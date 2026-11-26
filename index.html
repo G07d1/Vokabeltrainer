@@ -85,6 +85,10 @@ nav button.hm{flex:0 0 44px;font-size:18px}
 .chip{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;padding:10px 12px;font-size:16px;font-weight:600}
 .chips.built{border:2px dashed var(--bd);border-radius:12px;padding:8px}.chips.built .chip{background:var(--okb)}
 .ex-t{font-weight:700;margin:12px 0 0}
+.wkr{display:grid;grid-template-columns:78px 1fr 92px;align-items:center;gap:8px;font-size:14px;padding:3px 0}
+.wkr b{background:var(--bd);border-radius:6px;height:12px;overflow:hidden;display:block}.wkr b i{display:block;height:100%;background:var(--pr);border-radius:6px}
+.wkr em{font-style:normal;text-align:right;color:var(--mu)}.wkr.off span{color:var(--mu)}
+.act{display:flex;flex-direction:column;padding:8px 0;border-top:1px solid var(--bd)}.act b{font-size:15px}
 .exrow{display:block;width:100%;text-align:left;margin-top:8px;padding:12px 14px;border:1px solid var(--bd);border-left:5px solid var(--pr);border-radius:12px;background:var(--card);color:var(--tx)}
 .exrow b{display:block;font-size:16px}.exrow small{display:block;color:var(--mu);font-size:12px;margin-top:2px}
 .exrow small:empty{display:none}
@@ -110,6 +114,7 @@ nav button.hm{flex:0 0 44px;font-size:18px}
 <section id="woerter" class="hid"></section>
 <section id="archiv" class="hid"></section>
 <section id="kaesten" class="hid"></section>
+<section id="eltern" class="hid"></section>
 </main>
 <div id="sync"></div>
 <div id="toast" class="toast"></div>
@@ -124,6 +129,18 @@ async function rpc(fn,body){
   if(!r.ok){let m="Fehler";try{m=JSON.parse(t).message||m}catch(e){}throw new Error(m)}
   return t?JSON.parse(t):null;
 }
+
+// ===== Übungsprotokoll: nur wann, wie lange, was, wie viele – keine Fehler =====
+let SESS=null;
+function sessStart(kind,title){sessEnd();SESS={kind,title,t0:Date.now(),last:Date.now(),n:0}}
+function sessTick(k){if(!SESS)return;SESS.n=k==null?SESS.n+1:k;SESS.last=Date.now()}
+// keep: Einheit speichern, aber gleich weiterzählen (App kurz verlassen, „Nochmal“)
+function sessEnd(keep){const s=SESS;SESS=keep&&s?{...s,t0:Date.now(),last:Date.now(),n:0}:null;
+  if(!s||!s.n||!ME||ME.role==="parent")return;
+  const dur=Math.round((s.last-s.t0)/1000)+15;
+  try{fetch(SB_URL+"/rest/v1/rpc/vt_log",{method:"POST",keepalive:true,headers:{"apikey":SB_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify({p_name:ME.name,p_pin:ME.pin,p_kind:s.kind,p_title:s.title,p_n:s.n,p_dur:dur})}).catch(()=>{})}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")sessEnd(true)});
 
 // ===== Daten & Lernstand =====
 let ME=null, V=[], BOX=[], P={}, SETS=[], BADGES=new Set(), EXS=[];
@@ -227,7 +244,8 @@ async function login(name,pin){
   $("login").innerHTML="";$("login").append(el("p","mu","Lade Vokabeln …"));
   try{
     const d=await rpc("vt_load",{p_name:name,p_pin:pin});
-    ME={name,pin};storeLogin(ME);
+    ME={name,pin};storeLogin(ME);ME.role=d.role||"kid";
+    if(ME.role==="parent"){$("login").classList.add("hid");$("logout").classList.remove("hid");return renderParent()}
     V=d.vocab||[];BOX=d.boxes||[];P={};SETS=d.sets||[];BADGES=new Set(d.badges||[]);EXS=d.exercises||[];
     (d.progress||[]).forEach(x=>{P[x.vocab_id]={active:x.active,status:x.status,streak:x.streak,level:x.level||0,due:x.due||null}});
     $("login").classList.add("hid");$("nav").classList.remove("hid");$("logout").classList.remove("hid");
@@ -237,11 +255,12 @@ async function login(name,pin){
     renderLogin(/PIN/.test(e.message)?"Name oder PIN falsch.":"Keine Verbindung. Bitte Internet prüfen.");
   }
 }
-$("logout").onclick=async()=>{await flush();storeLogin(null);location.reload()};
+$("logout").onclick=async()=>{sessEnd();await flush();storeLogin(null);location.reload()};
 
 // ===== Tabs =====
 const TABS=["home","ex","start","lernen","ueben","woerter","archiv","kaesten"];
 function show(t){
+  sessEnd();
   document.querySelectorAll("nav button").forEach(b=>{b.classList.toggle("on",b.dataset.t===t);
     if(b.classList.contains("vk"))b.classList.toggle("hid",t==="ex");
     if(b.classList.contains("xk"))b.classList.toggle("hid",t!=="ex")});
@@ -322,7 +341,8 @@ function renderCards(){
   sp.onclick=e=>{e.stopPropagation();if(!si.classList.contains("f"))speak(w.en);else si.classList.toggle("f")};
   sd.onclick=e=>{e.stopPropagation();if(si.classList.contains("f"))speakDe(w.de);else si.classList.toggle("f")};
   f.append(sp);b.append(sd);
-  si.append(f,b);sc.append(si);sc.onclick=()=>{if("speechSynthesis"in window)speechSynthesis.cancel();si.classList.toggle("f")};
+  si.append(f,b);sc.append(si);sc.onclick=()=>{if("speechSynthesis"in window)speechSynthesis.cancel();si.classList.toggle("f");
+    if(!SESS||SESS.kind!=="Karteikarten")sessStart("Karteikarten","Vokabeln");sessTick()};
   box.append(top,sc);
   const r=el("div","row"),p=el("button","btn g","← Zurück"),n=el("button","btn","Weiter →");
   p.onclick=()=>{ci=(ci-1+deck.length)%deck.length;renderCards()};
@@ -345,8 +365,8 @@ function renderQuizStart(){
   [["de2en","Deutsch → Englisch"],["en2de","Englisch → Deutsch"],["mix","Gemischt"]].forEach(([k,t])=>{
     const bt=el("button",dir===k?"on":"",t);bt.onclick=()=>{dir=k;lsSet("vt_dir",k);renderQuizStart()};seg.append(bt)});
   b.append(seg);
-  if(due.length){const s=el("button","btn",`Quiz starten (${due.length})`);s.onclick=()=>{pool=shuf(due);qi=0;pts=0;nextQ()};b.append(s)}
-  if(due.length<q.length){const a=el("button","btn"+(due.length?" g":""),`Alle üben (${q.length})`);a.onclick=()=>{pool=shuf(q);qi=0;pts=0;nextQ()};b.append(a)}
+  if(due.length){const s=el("button","btn",`Quiz starten (${due.length})`);s.onclick=()=>{sessStart("Vokabel-Quiz","Heute dran");pool=shuf(due);qi=0;pts=0;nextQ()};b.append(s)}
+  if(due.length<q.length){const a=el("button","btn"+(due.length?" g":""),`Alle üben (${q.length})`);a.onclick=()=>{sessStart("Vokabel-Quiz","Alle üben");pool=shuf(q);qi=0;pts=0;nextQ()};b.append(a)}
   b.append(el("p","mu","Richtig = eine Stufe höher ●○○○○, Fehler = eine Stufe zurück. Richtig auf Stufe 5 = gemeistert. Bei „Alle üben“ zählen Wörter, die heute nicht dran sind, nur als Übung."));
   box.append(b);
   const w=el("div","box");
@@ -363,7 +383,7 @@ const OK_Q=["Richtig! 🎉","Super! ⭐","Genau! 👏","Stark! 💪"];
 const NO_Q=["Nicht ganz – kein Problem! 🙂","Knapp daneben – das merkst du dir jetzt. 💡","Macht nichts, dafür üben wir ja! 🙂"];
 function nextQ(){
   const box=$("ueben");
-  if(qi>=pool.length){box.innerHTML="";const b=el("div","box");b.append(say("blitz",line("blitz","done")),el("h3",null,`Fertig! ${pts} von ${pool.length} richtig 🎉`));qStreak=0;
+  if(qi>=pool.length){sessEnd();box.innerHTML="";const b=el("div","box");b.append(say("blitz",line("blitz","done")),el("h3",null,`Fertig! ${pts} von ${pool.length} richtig 🎉`));qStreak=0;
     const s=el("button","btn","Nochmal");s.onclick=renderQuizStart;b.append(s);box.append(b);header();return}
   const w=pool[qi];const t=dir==="mix"?(Math.random()<.5?"de2en":"en2de"):dir;
   cur={w,t,done:false};drawQ();
@@ -385,7 +405,7 @@ function drawQ(){
   b.append(fb);box.append(b);
 }
 function answer(ok,fb,b){
-  cur.done=true;const w=cur.w,x=st(w.id);
+  cur.done=true;sessTick();const w=cur.w,x=st(w.id);
   const wasDue=isDue(w);let info="";
   if(x.status==="new")x.status="practice";
   x.level=x.level||0;
@@ -442,10 +462,10 @@ function markDiff(correct,typed){
 }
 let wPool=[],wi=0,wStreak=0,wFirst=new Set(),wTricky=new Set(),wRetry=new Set();
 let wMode=lsGet("vt_wmode","type");
-function startWrite(q){wPool=shuf(q);wi=0;wStreak=0;wFirst=new Set();wTricky=new Set();wRetry=new Set();drawW(pickOne(W_START))}
+function startWrite(q){sessStart("Schreibtraining",wMode==="pen"?"Mit Stift":"Getippt");wPool=shuf(q);wi=0;wStreak=0;wFirst=new Set();wTricky=new Set();wRetry=new Set();drawW(pickOne(W_START))}
 function drawW(intro){
   const box=$("ueben");box.innerHTML="";
-  if(wi>=wPool.length)return endW();
+  sessTick(wi);if(wi>=wPool.length)return endW();
   if(wMode==="pen")return drawPen(intro);
   const w=wPool[wi],b=el("div","box");
   b.append(el("div","mu",`✍️ Wort ${wi+1}/${wPool.length} · ${secName(w)}`+(wRetry.has(w.id)?" · zweiter Versuch":"")));
@@ -529,6 +549,7 @@ function drawPen(intro){
   };
 }
 function endW(){
+  sessTick(wi);sessEnd();
   const box=$("ueben");box.innerHTML="";const b=el("div","box");
   const all=new Set(wPool.map(w=>w.id)).size;
   b.append(el("h3",null,`Geschafft! 🎉 Du hast ${all} Wörter geschrieben.`));
@@ -657,7 +678,7 @@ function buildBoxes(){
     drills.forEach(dr=>{
       const area=el("div");
       const bt=el("button","btn",`✏️ ${dr.title||"Üben"}`);
-      bt.onclick=()=>{bt.remove();area.innerHTML="";curBox=x.id;DRILL[dr.type](area,dr,()=>{area.innerHTML="";area.append(bt)})};
+      bt.onclick=()=>{bt.remove();area.innerHTML="";curBox=x.id;sessStart("Merkkasten",x.title);DRILL[dr.type](area,dr,()=>{sessEnd();area.innerHTML="";area.append(bt)})};
       area.append(bt);d.append(area);
     });
     box.append(d);
@@ -671,7 +692,7 @@ let dStreak=0;
 function crewOk(fb){if(++dStreak%3===0&&TH)fb.append(say("blitz",line("blitz","streak")))}
 function crewNo(f,hint){dStreak=0;if(hint)f.append(say("syntax",hint));else if(TH)f.append(say("pixel",line("pixel","oops"),"calm"))}
 function doneBox(area,msg,again,close){
-  if(curBox)earnBadge(curBox);dStreak=0;
+  if(curBox)earnBadge(curBox);dStreak=0;sessEnd(true);
   const b=el("div","fb ok");if(TH)b.append(say("blitz",line("blitz","done")));b.append(el("div","kind",msg));area.append(b);
   const r=el("div","row"),n=el("button","btn","Nochmal"),z=el("button","btn g","Fertig");
   n.onclick=again;z.onclick=close;r.append(n,z);area.append(r);
@@ -699,7 +720,7 @@ const DRILL={
       const fb=el("div");
       opts.forEach(o=>{const bt=el("button","opt",o);bt.onclick=()=>{
         if(bt.disabled)return;
-        if(o===ans){if(!tried)first++;area.querySelectorAll(".opt").forEach(x=>x.disabled=true);bt.classList.add("ok");
+        if(o===ans){sessTick();if(!tried)first++;area.querySelectorAll(".opt").forEach(x=>x.disabled=true);bt.classList.add("ok");
           fb.innerHTML="";fb.append(el("div","fb ok",pickOne(D_OK)+" "+(full||sen.replace("___",ans))));
           if(!tried)crewOk(fb);
           const n=el("button","btn","Weiter");n.onclick=()=>{i++;step()};fb.append(n);n.focus();
@@ -724,7 +745,7 @@ const DRILL={
         if(b.disabled)return;
         if(side==="L"){cl.querySelectorAll(".opt").forEach(x=>x.style.outline="");sel={o,b};b.style.outline="3px solid var(--pr)";return}
         if(!sel){msg.textContent="Erst links ein Wort antippen. 🙂";return}
-        if(sel.o.i===o.i){[sel.b,b].forEach(x=>{x.classList.remove("no");x.classList.add("ok");x.disabled=true;x.style.outline=""});sel=null;left--;
+        if(sel.o.i===o.i){[sel.b,b].forEach(x=>{x.classList.remove("no");x.classList.add("ok");x.disabled=true;x.style.outline=""});sel=null;left--;sessTick();
           msg.textContent=pickOne(D_OK);
           if(!left){area.append(el("div"));doneBox(area,"Alle Paare gefunden! 🎉",()=>DRILL.match(area,dr,close),close)}
         }else{b.classList.add("no");msg.textContent=pickOne(D_NO);setTimeout(()=>{if(!b.disabled)b.classList.remove("no")},700)}
@@ -756,7 +777,7 @@ const DRILL={
       const chk=el("button","btn","Prüfen"),fb=el("div");
       area.append(a,b,chk,fb);
       const go=()=>{
-        if(chk.disabled)return;chk.disabled=true;a.disabled=b.disabled=true;
+        if(chk.disabled)return;chk.disabled=true;a.disabled=b.disabled=true;sessTick();
         const ok2=fits(a.value,f2),ok3=fits(b.value,f3);
         const f=el("div","fb "+(ok2&&ok3?"ok":"no"));
         if(ok2&&ok3)f.append(el("div","kind",pickOne(D_OK)));
@@ -790,7 +811,7 @@ const DRILL={
           if(c.parentNode===pool){built.append(c);got.push(o.t)}else{pool.append(c);got.splice(got.indexOf(o.t),1)}
           if(got.length===it.c.length)check()};pool.append(c)});
       const check=()=>{
-        const ok=[...built.children].map(x=>x.textContent).join(" ")===right.join(" ");
+        const ok=[...built.children].map(x=>x.textContent).join(" ")===right.join(" ");sessTick();
         const f=el("div","fb "+(ok?"ok":"no"));
         if(ok){f.append(el("div","kind",pickOne(D_OK)+" "+full(right)));crewOk(f)}
         else{crewNo(f,dr.hint);f.append(el("div","kind",pickOne(D_NO)+" So heißt die Frage:"),el("div","ans",full(right)))}
@@ -806,6 +827,55 @@ const DRILL={
 function helpBtn(hint){
   const w=el("div"),b=el("button","btn g","💡 Ich brauche Hilfe");
   b.onclick=()=>{b.remove();w.append(say("syntax",hint))};w.append(b);return w;
+}
+
+// ===== Eltern-Ansicht: wie oft und wie lange geübt wurde (keine Fehler) =====
+const UNIT={"Vokabel-Quiz":"Wörter","Karteikarten":"Karten","Schreibtraining":"Wörter","Exercises":"Aufgaben","Merkkasten":"Aufgaben"};
+const dayKey=d=>d.toLocaleDateString("sv-SE");
+const mins=s=>s<60?"< 1 min":Math.round(s/60)+" min";
+async function renderParent(){
+  $("nav").classList.add("hid");TABS.forEach(x=>$(x).classList.add("hid"));
+  const box=$("eltern");box.classList.remove("hid");box.innerHTML="";box.append(el("p","mu","Lade …"));
+  $("stat").textContent=`${ME.name} · Eltern-Ansicht`;
+  let kids=[];try{kids=await rpc("vt_report",{p_name:ME.name,p_pin:ME.pin})}catch(e){box.innerHTML="";box.append(el("p",null,"Konnte nicht laden: "+e.message));return}
+  box.innerHTML="";
+  kids.forEach(k=>{
+    // aufeinanderfolgende gleiche Einheiten (Pause < 10 min) zusammenfassen
+    const acts=[];[...k.activity].reverse().forEach(a=>{const t=new Date(a.at),p=acts[acts.length-1];
+      if(p&&p.kind===a.kind&&p.title===a.title&&t-p.end<600000){p.n+=a.n;p.dur+=a.dur;p.end=new Date(+t+a.dur*1000)}
+      else acts.push({...a,t,end:new Date(+t+a.dur*1000)})});
+    acts.reverse();
+    const c=el("div","box");c.append(el("h3",null,"👀 "+k.name));
+    // Woche: letzte 7 Tage
+    const byDay={};acts.forEach(a=>{const d=dayKey(a.t);(byDay[d]=byDay[d]||{dur:0,n:0}).dur+=a.dur;byDay[d].n++});
+    let wDur=0,wDays=0,wCnt=0;const wk=el("div","wk");
+    for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const x=byDay[dayKey(d)];
+      if(x){wDur+=x.dur;wDays++;wCnt+=x.n}
+      const r=el("div","wkr"+(x?"":" off"));
+      const bar=el("i");bar.style.width=x?Math.min(100,8+x.dur/36)+"%":"0";
+      r.append(el("span",null,d.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})),el("b",null,""),el("em",null,x?`${mins(x.dur)} · ${x.n}×`:"–"));
+      r.children[1].append(bar);wk.append(r)}
+    c.append(el("p",null,wCnt?`Letzte 7 Tage: ${wCnt} Einheiten an ${wDays} Tagen, zusammen ${mins(wDur)}.`:"In den letzten 7 Tagen noch nichts geübt."),wk);
+    const v=k.vocab||{};c.append(el("p","mu",`📚 Vokabeln: ${v.active||0} freigegeben · heute dran ${v.due||0} · gemeistert ${v.done||0}`));
+    box.append(c);
+    const l=el("div","box");l.append(el("h3",null,"Letzte Einheiten"));
+    if(!acts.length)l.append(el("p","mu","Noch keine Einheiten gespeichert."));
+    acts.slice(0,25).forEach(a=>{const r=el("div","act");
+      r.append(el("span","mu",a.t.toLocaleDateString("de-DE",{weekday:"short",day:"2-digit",month:"2-digit"})+" "+a.t.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})),
+        el("b",null,a.kind+(a.title&&a.title!=="Vokabeln"?": "+a.title:"")),
+        el("span","mu",`${a.n} ${UNIT[a.kind]||"Aufgaben"} · ${mins(a.dur)}`));l.append(r)});
+    box.append(l);
+  });
+  if(!kids.length)box.append(el("p",null,"Noch kein Kind angelegt."));
+  const r=el("button","btn g","↻ Aktualisieren");r.onclick=renderParent;box.append(r);
+  // PIN ändern
+  const d=document.createElement("details");d.className="box";d.append(el("summary",null,"🔑 PIN ändern"));
+  const inp=el("input","t");inp.type="password";inp.inputMode="numeric";inp.placeholder="Neue PIN (4–8 Ziffern)";
+  const ok=el("button","btn","Speichern"),m=el("p","mu");
+  ok.onclick=async()=>{if(!/^\d{4,8}$/.test(inp.value.trim())){m.textContent="Bitte 4 bis 8 Ziffern.";return}try{await rpc("vt_pin_change",{p_name:ME.name,p_pin:ME.pin,p_new:inp.value.trim()});ME.pin=inp.value.trim();storeLogin({name:ME.name,pin:ME.pin});inp.value="";m.textContent="✅ Neue PIN gespeichert."}
+    catch(e){m.textContent=/Ziffern/.test(e.message)?"Bitte 4 bis 8 Ziffern.":"Hat nicht geklappt: "+e.message}};
+  d.append(inp,ok,m);box.append(d);
+  box.append(el("p","mu","Gespeichert wird nur, wann, wie lange und was geübt wurde – keine Fehler."));
 }
 
 // ===== Startseite: Vokabeln oder Exercises =====
@@ -825,8 +895,8 @@ function renderEx(){
   // Probe-Check: gemischte Sätze aus allen Themen
   const pc=el("div","box");pc.append(el("h3",null,"🎯 Probe-Check"),el("p","mu","15 gemischte Aufgaben aus allen Themen."));
   const pa=el("div"),pb=el("button","btn","Los geht's");
-  const reset=()=>{pa.innerHTML="";pa.append(pb)};
-  pb.onclick=()=>{const all=[];
+  const reset=()=>{sessEnd();pa.innerHTML="";pa.append(pb)};
+  pb.onclick=()=>{sessStart("Exercises","Probe-Check");const all=[];
     EXS.forEach(x=>(x.data.drills||[]).forEach(dr=>{if(dr.type!=="gap"||dr.text||dr.listen)return;
       dr.items.forEach(it=>{let o=Array.isArray(it[3])?it[3]:dr.options;
         if(!Array.isArray(it[3])&&o.length>4)o=shuf([it[1],...shuf(o.filter(v=>v!==it[1])).slice(0,2)]);
@@ -844,9 +914,9 @@ function renderEx(){
       bt.append(el("b",null,m?m[1]:title),el("small",null,m?m[2]:src));
       bt.onclick=()=>{
         // laufende Übung als eigene Karte mit Titel und ✕
-        bt.remove();area.innerHTML="";curBox=null;area.className="run";
+        bt.remove();area.innerHTML="";curBox=null;area.className="run";sessStart("Exercises",m?m[1]:title);
         const hd=el("div","run-h"),xb=el("button","run-x","✕"),inner=el("div");
-        const close=()=>{if(lsnOn){speechSynthesis.cancel();lsnSet(false)}area.className="";area.innerHTML="";area.append(bt)};
+        const close=()=>{sessEnd();if(lsnOn){speechSynthesis.cancel();lsnSet(false)}area.className="";area.innerHTML="";area.append(bt)};
         xb.onclick=close;hd.append(el("span",null,m?m[1]:title),xb);area.append(hd,inner);
         DRILL[dr.type](inner,dr,close);
         area.scrollIntoView({block:"start",behavior:"smooth"});
