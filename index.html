@@ -157,6 +157,9 @@ const pickOne=a=>a[Math.floor(Math.random()*a.length)];
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}}
 function lsSet(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
 function speak(t){if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(t));u.lang="en-GB";speechSynthesis.speak(u)}}
+// Dialog vorlesen: etwas langsamer, Sprechernamen mit kurzer Pause
+function speakSlow(t){if(!("speechSynthesis"in window))return;speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t.replace(/^(\w+):/gm,"$1. ").replace(/\n/g," "));u.lang="en-GB";u.rate=0.85;speechSynthesis.speak(u)}
 // Deutsch vorlesen: Buch-Abkürzungen so umschreiben, dass die Stimme sie sauber spricht
 function speakDe(t){if(!("speechSynthesis"in window))return;
   const s=t.replace(/(\p{L}+)\/in\b/gu,"$1 oder $1in").replace(/\bz\.\s?B\./g,"zum Beispiel").replace(/\bjn\./g,"jemanden").replace(/\bjm\./g,"jemandem")
@@ -656,7 +659,7 @@ function doneBox(area,msg,again,close){
 const DRILL={
   // Lückensätze: eine Lücke, Auswahl aus den Möglichkeiten
   gap(area,dr,close){
-    const items=shuf(dr.items);let i=0,first=0;
+    const items=dr.listen?dr.items.slice():shuf(dr.items);let i=0,first=0;
     const step=()=>{
       area.innerHTML="";
       if(i>=items.length)return doneBox(area,first===items.length?"Alles richtig – super gemacht! 🏆":"Geschafft! 🎉 Du hast alle Sätze durch.",()=>DRILL.gap(area,dr,close),close);
@@ -665,6 +668,9 @@ const DRILL={
       // eigene Antworten pro Satz; großer Wortkasten (>4) → Lösung + 2 andere
       let opts=Array.isArray(own)?own:dr.options;
       if(!Array.isArray(own)&&opts.length>4)opts=shuf([ans,...shuf(opts.filter(o=>o!==ans)).slice(0,2)]);
+      // Hörverstehen: Die Stimme liest den Buchtext vor, der Text bleibt zugeklappt
+      if(dr.listen){const h=el("button","btn g","🔊 Dialog anhören");h.onclick=()=>speakSlow(dr.listen);
+        const t=document.createElement("details");t.append(el("summary",null,"📄 Text aufdecken"),el("div","rd",dr.listen));area.append(h,t)}
       if(dr.text){const t=document.createElement("details");t.open=i===0;t.append(el("summary",null,"📄 Text lesen"),el("div","rd",dr.text));area.append(t)}
       area.append(el("div","mu",`${i+1}/${items.length}`),el("div","prompt",sen));
       const fb=el("div");
@@ -798,7 +804,7 @@ function renderEx(){
   const pa=el("div"),pb=el("button","btn","Los geht's");
   const reset=()=>{pa.innerHTML="";pa.append(pb)};
   pb.onclick=()=>{const all=[];
-    EXS.forEach(x=>(x.data.drills||[]).forEach(dr=>{if(dr.type!=="gap"||dr.text)return;
+    EXS.forEach(x=>(x.data.drills||[]).forEach(dr=>{if(dr.type!=="gap"||dr.text||dr.listen)return;
       dr.items.forEach(it=>{let o=Array.isArray(it[3])?it[3]:dr.options;
         if(!Array.isArray(it[3])&&o.length>4)o=shuf([it[1],...shuf(o.filter(v=>v!==it[1])).slice(0,2)]);
         all.push([it[0],it[1],it[2],o,it[4]||dr.hint])})}));
