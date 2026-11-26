@@ -158,8 +158,20 @@ function lsGet(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catc
 function lsSet(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
 function speak(t){if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(t));u.lang="en-GB";speechSynthesis.speak(u)}}
 // Dialog vorlesen: etwas langsamer, Sprechernamen mit kurzer Pause
+// Jede Sprecherin bekommt eine eigene Frauenstimme (amerikanisch bevorzugt); gibt's zu wenige, unterscheidet die Tonhöhe
+const GIRLS=["Samantha","Ava","Allison","Susan","Zoe","Nicky","Karen","Moira","Tessa","Kate","Serena","Martha","Stephanie","Google US English","Google UK English Female","Microsoft Aria","Microsoft Jenny","Microsoft Zira"];
+function girlVoices(){const vs=(speechSynthesis.getVoices()||[]).filter(v=>/^en/i.test(v.lang));const out=[];
+  GIRLS.forEach(n=>{const v=vs.find(x=>x.name.startsWith(n)&&!out.includes(x));if(v)out.push(v)});return out}
+if("speechSynthesis"in window){speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices()}
 function speakSlow(t){if(!("speechSynthesis"in window))return;speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(t.replace(/^(\w+):/gm,"$1. ").replace(/\n/g," "));u.lang="en-GB";u.rate=0.85;speechSynthesis.speak(u);return u}
+  const vs=girlVoices(),who={},P=[1,1.25,0.85];let last=null;
+  t.split("\n").filter(Boolean).forEach(l=>{const m=l.match(/^(\w+):\s*(.*)$/),n=m?m[1]:"",s=m?m[2]:l;
+    if(!(n in who))who[n]=Object.keys(who).length;const k=who[n];
+    const u=new SpeechSynthesisUtterance(s);u.lang="en-US";u.rate=0.9;
+    if(vs.length){u.voice=vs[k%vs.length];u.lang=u.voice.lang}
+    u.pitch=vs.length?P[Math.floor(k/vs.length)%3]:P[k%3];
+    speechSynthesis.speak(u);last=u});
+  return last}
 let lsnOn=false;
 function lsnSet(v){lsnOn=v;document.querySelectorAll(".lsn").forEach(b=>b.textContent=v?"⏹ Stopp":"🔊 Dialog anhören")}
 // Deutsch vorlesen: Buch-Abkürzungen so umschreiben, dass die Stimme sie sauber spricht
