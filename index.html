@@ -159,7 +159,9 @@ function lsSet(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem
 function speak(t){if("speechSynthesis"in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(clean(t));u.lang="en-GB";speechSynthesis.speak(u)}}
 // Dialog vorlesen: etwas langsamer, Sprechernamen mit kurzer Pause
 function speakSlow(t){if(!("speechSynthesis"in window))return;speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(t.replace(/^(\w+):/gm,"$1. ").replace(/\n/g," "));u.lang="en-GB";u.rate=0.85;speechSynthesis.speak(u)}
+  const u=new SpeechSynthesisUtterance(t.replace(/^(\w+):/gm,"$1. ").replace(/\n/g," "));u.lang="en-GB";u.rate=0.85;speechSynthesis.speak(u);return u}
+let lsnOn=false;
+function lsnSet(v){lsnOn=v;document.querySelectorAll(".lsn").forEach(b=>b.textContent=v?"⏹ Stopp":"🔊 Dialog anhören")}
 // Deutsch vorlesen: Buch-Abkürzungen so umschreiben, dass die Stimme sie sauber spricht
 function speakDe(t){if(!("speechSynthesis"in window))return;
   const s=t.replace(/(\p{L}+)\/in\b/gu,"$1 oder $1in").replace(/\bz\.\s?B\./g,"zum Beispiel").replace(/\bjn\./g,"jemanden").replace(/\bjm\./g,"jemandem")
@@ -669,7 +671,10 @@ const DRILL={
       let opts=Array.isArray(own)?own:dr.options;
       if(!Array.isArray(own)&&opts.length>4)opts=shuf([ans,...shuf(opts.filter(o=>o!==ans)).slice(0,2)]);
       // Hörverstehen: Die Stimme liest den Buchtext vor, der Text bleibt zugeklappt
-      if(dr.listen){const h=el("button","btn g","🔊 Dialog anhören");h.onclick=()=>speakSlow(dr.listen);
+      // Anhören / Stopp im selben Knopf
+      if(dr.listen){const h=el("button","btn g lsn",lsnOn?"⏹ Stopp":"🔊 Dialog anhören");
+        h.onclick=()=>{if(lsnOn){speechSynthesis.cancel();lsnSet(false);return}
+          const u=speakSlow(dr.listen);if(!u)return;lsnSet(true);u.onend=u.onerror=()=>lsnSet(false)};
         const t=document.createElement("details");t.append(el("summary",null,"📄 Text aufdecken"),el("div","rd",dr.listen));area.append(h,t)}
       if(dr.text){const t=document.createElement("details");t.open=i===0;t.append(el("summary",null,"📄 Text lesen"),el("div","rd",dr.text));area.append(t)}
       area.append(el("div","mu",`${i+1}/${items.length}`),el("div","prompt",sen));
